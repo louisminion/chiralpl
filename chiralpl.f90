@@ -18,6 +18,15 @@ module variables
     logical :: bool_two_particle_states = .true.
     integer :: max_vibs
     real(wp) :: lambda_neutral  = 1.0_wp
+    real(wp) :: w00 = 10000.0_wp
+    real(wp) :: hw = 1000.0_wp
+    real(wp) :: JCoulx = 700.0_wp
+    real(wp) :: JCouly = 700.0_wp
+    real(wp) :: JCoulz = 700.0_wp
+    real(wp) :: te_x = 700.0_wp
+    real(wp) :: te_y = 700.0_wp    
+    real(wp) :: th_x = 700.0_wp
+    real(wp) :: th_y = 700.0_wp    
 
     ! state counters
     integer :: general_counter = 0
@@ -39,6 +48,7 @@ module variables
     ! The hamiltonian is a 2d array
     real(wp), allocatable :: H(:,:)
     integer, parameter :: empty = -1
+
 end module
 
 program chiralpl
@@ -134,6 +144,8 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) max_vibs
             case ( 'HUANG_RHYS_NEUTRAL')
                 read(buffer, *, iostat=io_stat) lambda_neutral
+            case ( 'MONOMER_TRANSITION')
+
             case default
                 write(*,"(*(a))") 'Unable to assign input variable: ', label
             end select
@@ -143,7 +155,9 @@ subroutine readInput()
 
     close(unit =  file_no)
 
-
+    ! Normalise units to hw
+    hw = hw/hw
+    w00 = w00/hw
 end subroutine
 
 
@@ -300,10 +314,44 @@ function factorial(j) result(fac)
 
 end function factorial
 
+
+pure real(wp) function coupling(x1,y1,z1,x2,y2,z2)
+    use variables
+    integer, intent(in) :: x1,y1,z1,x2,y2,z2
+    integer :: d_x, d_y, d_z
+    d_x = abs(x2-x1)
+    d_y = abs(y2-y1)
+    d_z = abs(z2-z1)
+    coupling  = 0.0_wp
+    if (d_y .eq. 0 .and. d_z .eq. 0) then
+        if (d_x .eq. 1) then
+            coupling = JCoulx !+ te_x + th_x
+        end if
+        return
+
+    end if
+
+    if (d_x .eq. 0 .and. d_z .eq. 0) then
+        if (d_y .eq. 1) then
+            coupling = JCouly !+ te_x + th_x
+        end if
+        return
+    end if
+    if (d_x .eq. 0 .and. d_y .eq. 0) then
+        if (d_z .eq. 1) then
+            coupling = JCoulz !+ te_x + th_x
+        end if
+        return
+
+    end if
+    return
+
+end function
+
 subroutine build1particleHamiltonian()
     use variables
     implicit none
-
+    real(wp), external :: coupling
     integer :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i
     integer :: i_x2, i_y2, i_z2, vib_i2, i_xyz2, h_j
     ! h_i and h_j are hamiltonian indices
@@ -314,10 +362,23 @@ subroutine build1particleHamiltonian()
                     i_xyz1 = lattice_index_arr( i_x1, i_y1, i_z1 )
                     h_i = one_particle_index_arr( i_xyz1, vib_i1 )
                     if ( h_i == empty ) cycle
-                ! assign variables
+                    H(h_i, h_i) = vib_i1*1.0_wp + w00
+                    do i_x2=1, lattice_dimx
+                        do i_y2=1, lattice_dimy
+                            do i_z2=1, lattice_dimz
+                                do vib_i2 = 0, max_vibs
+                                    i_xyz2 = lattice_index_arr(i_x2, i_y2, i_z2)
+                                    h_j = one_particle_index_arr(i_xyz2, vib_i2)
+                                    H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                    H(h_j, h_i) = H(h_i, h_j)
+                                end do
+                            end do
+                        end do
+                    end do
                 end do
             end do
         end do
     end do
+    write(21, *) H
 
 end subroutine
