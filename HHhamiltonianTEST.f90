@@ -214,6 +214,11 @@ external :: dsyevr, dlamch
 !****************************************************************************************************
    !We need to set the Frank Condon factors for the vibrational overlap factors
     call set_fctable()
+    open(unit=16, file='FC.csv')
+    do j = 0, size(fc_gf,dim=1)
+        write(16, '(*(F12.8 : ", "))') fc_gf(:, j)
+    end do
+    close(16)
 !****************************************************************************************************        
     
     !output the parameters (local)
@@ -241,13 +246,18 @@ external :: dsyevr, dlamch
         write(*,*) 'WRITING OUT HAMILTONIAN TO FILE'
         open(unit=10, file='h.csv')
         do j = 1, size(h,dim=1)
-            write(10, '(*(F8.5 : ", "))') h(:, j)
+            write(10, '(*(F12.8 : ", "))') h(:, j)
         end do
         close(10)
         call cpu_time(start)
         call dsyevr_diagonalize( h, kount, eval, kount2, rrange, iu ) 
         call cpu_time(finish)
         print*, 'Diagonalization Time::', finish-start
+        open(unit=11, file='W.csv')
+        do j = 1, size(eval,dim=1)
+            write(11, '(*(F12.8 : ", "))') eval(j)
+        end do
+        close(11)
  !*******************************************************************************************************************************!        
 
 end program
@@ -957,7 +967,7 @@ subroutine fcfac(n,m,s,fc)
 	f_m = fact(m)
 !	print*,'f_n,f_m=',f_n,f_m
 	fc = fc*dsqrt(1.d0*f_m*f_n)*dexp(-s/2.d0)
-
+    ! write(*,*) fc
 	return
 end subroutine
 
@@ -1055,6 +1065,7 @@ subroutine dsyevr_diagonalize( a, n, w, m, rrange, iu)
 
     !deallocate allocated so it can come back and allocate next time
     deallocate( z, work, iwork )
+    write(21,*) w
 
 end subroutine   
 

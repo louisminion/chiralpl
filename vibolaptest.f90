@@ -7,6 +7,7 @@ program vibolaptest
     integer :: n, m
     real(kind=wp) :: lambda_hr, vibolap
     real*8, external :: volap
+    real(wp) :: fc_fac
     write(*,*) 'GET n'
     read(*,*) n
     write(*,*) 'GET m'
@@ -15,7 +16,8 @@ program vibolaptest
     call calcVibrationalOverlap(0.0_wp,n,lambda_hr,m,vibolap)
     write(*,*) 'vibolap', vibolap
     write(*,*) 'volap', volap(0.0_wp,n,lambda_hr,m)
-
+    call fcfac(n,m,lambda_hr,fc_fac)
+    write(*,*) 'fcfac', fc_fac
 
 end program
 
@@ -86,4 +88,35 @@ subroutine calcVibrationalOverlap(lambda_1,n,lambda_2,m,vibolap)
     vibolap = vibolap*dsqrt(1.0_wp*factorial(n)*    &
     factorial(m))*dexp(-1.0_wp*lambda_hr**2/2.0_wp)
 
+end subroutine
+
+
+
+subroutine fcfac(n,m,s,fc)
+    use variables
+	implicit none
+	integer n,m,k
+	real*8 s,fc,f_m,f_n,f_k,f_nmk,f_mk,facin
+	real(wp), external :: factorial
+
+	fc = 0.d0
+
+	do k = 0,m
+		if(n-m+k < 0) go to 100	! if n-m+k is negative, factorial is not calculatable.
+
+		f_mk  = factorial(m-k)
+		f_nmk = factorial(n-m+k)
+		f_k   = factorial(k)
+		facin = 1.d0/(1.d0*f_k*f_mk*f_nmk)
+
+		fc = fc + facin*s**(k*0.5d0)*s**(1.0d0*(n-m+k)*0.5d0)*(-1)**(n-m+k)
+100		continue
+	enddo
+
+	f_n = factorial(n)
+	f_m = factorial(m)
+!	print*,'f_n,f_m=',f_n,f_m
+	fc = fc*dsqrt(1.d0*f_m*f_n)*dexp(-s/2.d0)
+    ! write(*,*) fc
+	return
 end subroutine

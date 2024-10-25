@@ -8,8 +8,13 @@
 ! The majority of this code was heavily inspired by the code of N J Hestand and R Ghosh in exciton_1d and polaron_cmsf90
 ! No code is reproduced here, but algorithms are reproduced under the MIT license those codes were released with.
 module variables
-    ! INPUTS TO ENSURE A DEFAULT
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
+    
+    !Constants
+    real(wp), parameter :: eV = 8065.0_wp !1 eV = 8065cm^-1
+
+
+    ! INPUTS TO ENSURE A DEFAULT
     character*256 :: INPUT_NAME
     integer:: lattice_dimx = 1
     integer:: lattice_dimy = 1
@@ -73,7 +78,12 @@ program chiralpl
     if ( bool_one_particle_states ) call oneParticleIndex()
     if ( bool_two_particle_states ) call twoParticleIndex()
     
-    call calcFranckCondonTables
+    call calcFranckCondonTables()
+    open(unit=16, file='FC_.csv')
+    do j = 0, size(fc_ground_to_neutral,dim=1)
+        write(16, '(*(F12.8 : ", "))') fc_ground_to_neutral(:, j)
+    end do
+    close(16)
     print*,'Hamiltonian size()','(',general_counter,general_counter,')'
     estimated_RAM = ((((1.0_wp*general_counter)**2)*64)/(8.0_wp*1.0E9_wp))
     if ( estimated_RAM> 8.0_wp) then
@@ -97,7 +107,7 @@ program chiralpl
     if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian()
     if (H_out .eq. .true.) then
         write(*,*) 'Writing out Hamiltonian to File'
-        open(unit=10, file='h.csv')
+        open(unit=10, file='h_.csv')
         do j = 1, size(H,dim=1)
             write(10, '(*(F12.8 : ", "))') H(:, j)
         end do
@@ -107,7 +117,12 @@ program chiralpl
     end if 
     call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
 
-    write(8,*) EVAL
+    open(unit=11, file='W_.csv')
+    do j = 1, size(EVAL,dim=1)
+        write(11, '(*(F12.8 : ", "))') EVAL(j)
+    end do
+    close(11)
+    ! write(8,*) EVAL
 
     ! call absorption
 
@@ -188,7 +203,9 @@ subroutine readInput()
 
     ! Normalise units to hw
     w00 = w00/hw
-    hw = hw/hw
+    ! hw = hw/hw
+    JCoulx = JCoulx * eV / hw
+    JCouly = JCouly * eV / hw
 end subroutine
 
 
@@ -293,7 +310,7 @@ subroutine calcFranckCondonTables()
     integer :: ground_vib, exc_vib
     real(wp) :: vibolap
     if (.not. allocated(fc_ground_to_neutral)) then
-        allocate(fc_ground_to_neutral(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j
+        allocate(fc_ground_to_neutral(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j. Zero-indexed
     end if
 
     do ground_vib=0,max_vibs
@@ -302,6 +319,7 @@ subroutine calcFranckCondonTables()
             fc_ground_to_neutral(ground_vib, exc_vib) = vibolap
         end do
     end do
+    !FCWRITE
 
 
 end subroutine
@@ -322,13 +340,12 @@ subroutine calcVibrationalOverlap(lambda_1,n,lambda_2,m,vibolap)
     vibolap = 0.0_wp
     do j=0,min(n,m)
 
-        vibolap = vibolap + ((-1.0_wp)**(m-j)/(factorial(n-j)*factorial(j)*factorial(m-j)))*   &
+        vibolap = vibolap + (((-1.0_wp)**(m-j))/(factorial(n-j)*factorial(j)*factorial(m-j)))*   &
         (lambda_hr**(n+m-2*j))
 
     end do
     vibolap = vibolap*dsqrt(1.0_wp*factorial(n)*    &
     factorial(m))*dexp(-1.0_wp*lambda_hr**2/2.0_wp)
-
 end subroutine
 
 
@@ -385,8 +402,8 @@ subroutine build1particleHamiltonian()
     use variables
     implicit none
     real(wp), external :: coupling
-    integer :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i
-    integer :: i_x2, i_y2, i_z2, vib_i2, i_xyz2, h_j
+    integer :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i ! x,y,z coords for vibronic exc on 1
+    integer :: i_x2, i_y2, i_z2, vib_i2, i_xyz2, h_j ! x,y,z coords for vibronic exc on 2
     ! h_i and h_j are hamiltonian indices
     do i_x1 = 1, lattice_dimx
         do i_y1 = 1, lattice_dimy
@@ -396,13 +413,15 @@ subroutine build1particleHamiltonian()
                     h_i = one_particle_index_arr( i_xyz1, vib_i1 )
                     if ( h_i == empty ) cycle
                     H(h_i, h_i) = vib_i1*1.0_wp + w00
-                    ! write(*,*) H(h_i, h_i) 
+                    ! write(*,*) H(h_i, h_i) , 'H(',h_i,h_i,')'
                     do i_x2=1, lattice_dimx
                         do i_y2=1, lattice_dimy
                             do i_z2=1, lattice_dimz
                                 do vib_i2 = 0, max_vibs
                                     i_xyz2 = lattice_index_arr(i_x2, i_y2, i_z2)
                                     h_j = one_particle_index_arr(i_xyz2, vib_i2)
+                                    if ( h_j == empty ) cycle
+                                    if (h_j .eq. h_i) cycle
                                     H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                     H(h_j, h_i) = H(h_i, h_j)
                                 end do
@@ -506,7 +525,7 @@ subroutine build1particle2particleHamiltonian()
                                     do vib_i2v=1,max_vibs
                                         h_j = two_particle_index_arr(i_xyz2,vib_i2,i_xyz2v,vib_i2v)
                                         if (h_j .eq. empty) cycle
-                                        H(h_i,h_j) = coupling(i_x1,i_y2,i_z2,i_y1,i_y2,i_z2)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                        H(h_i,h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                         H(h_j,h_i) = H(h_i,h_j)
                                     end do
                                 end do
@@ -532,8 +551,8 @@ subroutine Diagonalize(A,RANGE,N,W,M,I_U)
     parameter  (JOBV='V', UPLO='U')
 
     integer :: LDA ! array leading dimension
-    real(wp) :: VL = 10.0_wp ! lower and upper of interval to search for eigenvalues if RANGE='V'. Not accessed
-    real(wp) :: VU = 40.0_wp
+    real(wp) :: VL = -3.0_wp ! lower and upper of interval to search for eigenvalues if RANGE='V'. Not accessed
+    real(wp) :: VU = 20.0_wp
     integer :: IL = 1 ! lower bound of IL->IU if only selected eigenvals requested.
     real(wp) :: ABSTOL ! absolute error tolerance for eigenvals, 
 
