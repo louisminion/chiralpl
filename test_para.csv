@@ -1,0 +1,20 @@
+ parameter file for, cms_local_disorder.f95
+ task title, test
+ date and time, 20241025 221608.442
+ x dimension,            2
+ y dimension,            1
+ vibmax,            2
+ vib energy (cm-1),    1400.00000000000     
+ huang-rhys,    1.00000000000000     
+ th x (eV),  -0.200000000000000     
+ th y (eV),  -0.150000000000000     
+ abs lw (cm-1),    350.000000000000     
+ lineshape, gaussian
+ conformations,         5000
+ disorder width (cm-1),   0.000000000000000E+000
+ x correlation length,   0.000000000000000E+000
+ y correlation length,   0.000000000000000E+000
+ one state,  T
+ two state,  T
+ two truncate,  F
+ two range,            3
