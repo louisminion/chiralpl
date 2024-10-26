@@ -22,6 +22,7 @@ module variables
     logical :: bool_one_particle_states = .true.
     logical :: bool_two_particle_states = .true.
     logical :: H_out = .false.
+    logical :: save_evals = .false.
     integer :: max_vibs
     real(wp) :: lambda_neutral  = 1.0_wp
     real(wp) :: w00 = 10000.0_wp
@@ -59,6 +60,11 @@ module variables
     integer :: IU = 1
     integer :: EVAL_COUNT
 
+
+    ! File out names
+    character*256 :: eval_out_f
+
+
 end module
 
 program chiralpl
@@ -79,11 +85,6 @@ program chiralpl
     if ( bool_two_particle_states ) call twoParticleIndex()
     
     call calcFranckCondonTables()
-    open(unit=16, file='FC_.csv')
-    do j = 0, size(fc_ground_to_neutral,dim=1)
-        write(16, '(*(F12.8 : ", "))') fc_ground_to_neutral(:, j)
-    end do
-    close(16)
     print*,'Hamiltonian size()','(',general_counter,general_counter,')'
     estimated_RAM = ((((1.0_wp*general_counter)**2)*64)/(8.0_wp*1.0E9_wp))
     if ( estimated_RAM> 8.0_wp) then
@@ -117,12 +118,17 @@ program chiralpl
     end if 
     call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
 
-    open(unit=11, file='W_.csv')
-    do j = 1, size(EVAL,dim=1)
-        write(11, '(*(F12.8 : ", "))') EVAL(j)
-    end do
-    close(11)
-    ! write(8,*) EVAL
+    ! Save eigenvalue logic
+    if (save_evals .eq. .true.) then
+        write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_EVALS.csv')
+        eval_out_f = trim(eval_out_f)
+        write(*,'(a,a)') 'Writing eigenvalues to ', eval_out_f
+        open(unit=11, file=eval_out_f)
+        do j = 1, size(EVAL,dim=1)
+            write(11, '(*(F12.8 : ", "))') EVAL(j)
+        end do
+        close(11)
+    end if
 
     ! call absorption
 
@@ -192,6 +198,8 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) w00
             case ('WRITE_HAMILTONIAN_OUT')
                 read(buffer, *, iostat=io_stat) H_out
+            case ('SAVE_EIGENVALS')
+                read(buffer, *, iostat=io_stat) save_evals
             case default
                 write(*,"(*(a))") 'Unable to assign input variable: ', label
             end select
@@ -413,7 +421,6 @@ subroutine build1particleHamiltonian()
                     h_i = one_particle_index_arr( i_xyz1, vib_i1 )
                     if ( h_i == empty ) cycle
                     H(h_i, h_i) = vib_i1*1.0_wp + w00
-                    ! write(*,*) H(h_i, h_i) , 'H(',h_i,h_i,')'
                     do i_x2=1, lattice_dimx
                         do i_y2=1, lattice_dimy
                             do i_z2=1, lattice_dimz
@@ -456,7 +463,6 @@ subroutine build2particleHamiltonian()
                                     h_i = two_particle_index_arr(i_xyz1,vib_i1, i_xyz1v, vib_i1v)
                                     if (h_i .eq. empty) cycle
                                     H(h_i,h_i) = (vib_i1+vib_i1v)*1.0_wp + w00
-                                    ! write(*,*) H(h_i, h_i)
                                     do i_x2=1,lattice_dimx
                                         do i_y2=1,lattice_dimy
                                             do i_z2=1,lattice_dimz
@@ -493,7 +499,6 @@ subroutine build2particleHamiltonian()
             end do
         end do
     end do
-    ! write(21, *) H
 end subroutine
 
 
@@ -510,7 +515,6 @@ subroutine build1particle2particleHamiltonian()
                 do vib_i1=0,max_vibs
                     i_xyz1 = lattice_index_arr(i_x1,i_y1,i_z1) !get lattice index of state 1 1-particle exc
                     h_i = one_particle_index_arr(i_xyz1, vib_i1)
-                    ! write(*,*) 'h_i', h_i,'at i_xyz1', i_xyz1, 'vib_i1', vib_i1
                     if (h_i .eq. empty) cycle
                     do i_x2=1,lattice_dimx
                         do i_y2=1,lattice_dimy
