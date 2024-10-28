@@ -1,0 +1,6 @@
+*.exe
+*.lib
+*.obj
+*.mod
+*.csv
+fort.*

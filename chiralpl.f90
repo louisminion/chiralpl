@@ -23,6 +23,7 @@ module variables
     logical :: bool_two_particle_states = .true.
     logical :: H_out = .false.
     logical :: save_evals = .false.
+    logical :: save_evecs = .false.
     integer :: max_vibs
     real(wp) :: lambda_neutral  = 1.0_wp
     real(wp) :: w00 = 10000.0_wp
@@ -65,6 +66,10 @@ module variables
     character*256 :: eval_out_f
 
 
+    ! For propery calculations
+    complex(kind=wp), parameter :: complex_zero = ( 0_wp, 0_wp )
+
+
 end module
 
 program chiralpl
@@ -73,12 +78,20 @@ program chiralpl
     implicit none
     integer :: j
     real(wp) :: estimated_RAM
+    character*8  :: date_now
+    character*10 :: time_now
     external :: dsyevr, dlamch
     !declare variables
 
-
+    print*, '*****************************************'
+    print*, '                 chiralpl'
+    print*, '*****************************************'
+    print*, 'Louis Minion 2024'
+    call date_and_time(DATE=date_now,TIME=time_now)
+    write(*,'((a),(a))') 'Program Started ', date_now
     ! do parameter setting
 
+    print*, 'Reading input'
     call readInput()
     call LatticeIndex()
     if ( bool_one_particle_states ) call oneParticleIndex()
@@ -130,6 +143,19 @@ program chiralpl
         close(11)
     end if
 
+    if (save_evecs .eq. .true.) then
+        write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_EVECS.csv')
+        eval_out_f = trim(eval_out_f)
+        write(*,*) 'Writing out eigenvectors to File'
+        open(unit=15, file=eval_out_f)
+        do j = 1, size(H,dim=1)
+            write(15, '(*(F12.8 : ", "))') H(:, j) ! H now matrix of eigenvectors
+        end do
+        close(15)
+    else
+        write(*,*) 'Skipping saving eigenvectors' 
+    end if
+    call pl()
     ! call absorption
 
     ! ! Need to setup dipoles in chiral manner
@@ -200,6 +226,8 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) H_out
             case ('SAVE_EIGENVALS')
                 read(buffer, *, iostat=io_stat) save_evals
+            case ('SAVE_EIGENVECS')
+                read(buffer, *, iostat=io_stat) save_evecs
             case default
                 write(*,"(*(a))") 'Unable to assign input variable: ', label
             end select
@@ -601,4 +629,32 @@ subroutine Diagonalize(A,RANGE,N,W,M,I_U)
     print*, '*****************************************'
     A(:,1:M) = Z(:,1:M) ! Assign A to Z, (less of Z if M != N)
     deallocate( Z, WORK, IWORK )
+end subroutine
+
+
+subroutine pl()
+    use variables
+    implicit none
+    integer i_x, i_y, i_z, i_xyz, vib ! indices for vibronic excitations
+    integer :: h_i
+    real(wp) :: c_nv
+    complex(kind=wp) :: I_00
+
+    I_00 = complex_zero
+    do i_x=1,lattice_dimx  ! sum over all n,v-tilde
+        do i_y=1,lattice_dimy
+            do i_z=1,lattice_dimz
+                do vib=0,max_vibs
+                    i_xyz = lattice_index_arr(i_x,i_y,i_z) ! get n
+                    h_i = one_particle_index_arr( i_xyz, vib )
+                    c_nv = H(h_i,1) ! get coefficient of one-particle state in eigenbasis
+                    I_00 = I_00 + c_nv*fc_ground_to_neutral(vib,0) !*dipole_moment(x,y,z) !implement variable dipole later
+                end do
+            end do
+        end do
+    end do
+    I_00 = I_00*conjg(I_00) ! dconjg is obselete, conjg will generally know the kind of its variable
+    write(*,*) I_00
+
+
 end subroutine
