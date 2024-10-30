@@ -1,307 +1,72 @@
-<?xml version="1.0" encoding = "utf-8"?>
-<VisualStudioProject
-	ProjectCreator="Intel Fortran"
-	Version="11.0"
-	Keyword="Console Application">
-	ProjectGUID="{46988A14-5924-33BD-9BDD-8D206F6E5B9D}">
+<?xml version="1.0" encoding="UTF-8"?>
+<VisualStudioProject ProjectCreator="Intel Fortran" Keyword="Console Application" Version="11.0" ProjectIdGuid="{46988A14-5924-33BD-9BDD-8D206F6E5B9D}">
 	<Platforms>
-		<Platform
-			Name="x64"/>
+		<Platform Name="x64"/>
 	</Platforms>
 	<Configurations>
-		<Configuration
-			Name="Debug|x64"
-			OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\Debug"
-			IntermediateDirectory="chiralpl.dir\Debug"
-			ConfigurationType="1"
-			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
-			TargetName="chiralpl"
-			TargetExt=".exe"
-			CharacterSet="2">
-			<Tool
-				Name="VFFortranCompilerTool"
-				ModulePath=".\$(ConfigurationName)"
-				AdditionalOptions="/W1"
-				AssemblerListingLocation="$(IntDir)\"
-				DebugInformationFormat="debugEnabled"
-				ExceptionHandling="0"
-				Optimization="optimizeDisabled"
-				Preprocess="preprocessYes"
-				RuntimeLibrary="rtMultiThreadedDebugDLL"
-				SuppressStartupBanner="true"
-				PreprocessorDefinitions=";CMAKE_INTDIR=\&quot;Debug\&quot;"
-				ObjectFile="$(IntDir)\"
-/>
-			<Tool
-				Name="VFCustomBuildTool"/>
-			<Tool
-				Name="VFResourceCompilerTool"
-				PreprocessorDefinitions=";CMAKE_INTDIR=\&quot;Debug\&quot;"
-			/>
-			<Tool
-				Name="VFMIDLTool"
-				MkTypLibCompatible="false"
-				TargetEnvironment="3"
-				GenerateStublessProxies="true"
-				TypeLibraryName="$(InputName).tlb"
-				OutputDirectory="$(IntDir)"
-				HeaderFileName="$(InputName).h"
-				DLLDataFileName=""
-				InterfaceIdentifierFileName="$(InputName)_i.c"
-				ProxyFileName="$(InputName)_p.c"/>
-			<Tool
-				Name="VFManifestTool"/>
-			<Tool
-				Name="VFPreBuildEventTool"/>
-			<Tool
-				Name="VFPreLinkEventTool"/>
-			<Tool
-				Name="VFPostBuildEventTool"/>
-			<Tool
-				Name="VFLinkerTool"
-				LinkLibraryDependencies="false"
-				AdditionalDependencies="$(NOINHERIT) user32.lib "
-				OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\Debug\chiralpl.exe"
-				Version="0.0"
-				AdditionalOptions="/machine:x64 /debug /INCREMENTAL"
-				AdditionalLibraryDirectories=""
-				ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\Debug/chiralpl.pdb"
-				GenerateDebugInformation="true"
-				SubSystem="subSystemConsole"
-				ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\Debug\chiralpl.lib"/>
+		<Configuration Name="Debug|x64" UseCompiler="ifortCompiler" OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\Debug" IntermediateDirectory="chiralpl.dir\Debug" TargetName="chiralpl">
+			<Tool Name="VFFortranCompilerTool" AdditionalOptions="/W1" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" Preprocess="preprocessYes" PreprocessorDefinitions=";CMAKE_INTDIR=\&quot;Debug\&quot;" ModulePath=".\$(ConfigurationName)" RuntimeLibrary="rtMultiThreadedDebugDLL" ExceptionHandling="0"/>
+			<Tool Name="VFLinkerTool" AdditionalOptions="/machine:x64 /debug /INCREMENTAL" OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\Debug\chiralpl.exe" Version="0.0" LinkLibraryDependencies="false" GenerateDebugInformation="true" ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\Debug/chiralpl.pdb" SubSystem="subSystemConsole" ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\Debug\chiralpl.lib" AdditionalDependencies="$(NOINHERIT) user32.lib "/>
+			<Tool Name="VFResourceCompilerTool" PreprocessorDefinitions=";CMAKE_INTDIR=\&quot;Debug\&quot;"/>
+			<Tool Name="VFMidlTool" GenerateStublessProxies="true" OutputDirectory="$(IntDir)" HeaderFileName="$(InputName).h" DLLDataFileName="" InterfaceIdentifierFileName="$(InputName)_i.c" ProxyFileName="$(InputName)_p.c" TypeLibraryName="$(InputName).tlb"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool"/>
 		</Configuration>
-		<Configuration
-			Name="Release|x64"
-			OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\Release"
-			IntermediateDirectory="chiralpl.dir\Release"
-			ConfigurationType="1"
-			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
-			TargetName="chiralpl"
-			TargetExt=".exe"
-			CharacterSet="2">
-			<Tool
-				Name="VFFortranCompilerTool"
-				ModulePath=".\$(ConfigurationName)"
-				AdditionalOptions="/W1 /O2"
-				AssemblerListingLocation="$(IntDir)\"
-				ExceptionHandling="0"
-				Preprocess="preprocessYes"
-				RuntimeLibrary="rtMultiThreadedDLL"
-				SuppressStartupBanner="true"
-				PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;Release\&quot;"
-				ObjectFile="$(IntDir)\"
-/>
-			<Tool
-				Name="VFCustomBuildTool"/>
-			<Tool
-				Name="VFResourceCompilerTool"
-				PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;Release\&quot;"
-			/>
-			<Tool
-				Name="VFMIDLTool"
-				MkTypLibCompatible="false"
-				TargetEnvironment="3"
-				GenerateStublessProxies="true"
-				TypeLibraryName="$(InputName).tlb"
-				OutputDirectory="$(IntDir)"
-				HeaderFileName="$(InputName).h"
-				DLLDataFileName=""
-				InterfaceIdentifierFileName="$(InputName)_i.c"
-				ProxyFileName="$(InputName)_p.c"/>
-			<Tool
-				Name="VFManifestTool"/>
-			<Tool
-				Name="VFPreBuildEventTool"/>
-			<Tool
-				Name="VFPreLinkEventTool"/>
-			<Tool
-				Name="VFPostBuildEventTool"/>
-			<Tool
-				Name="VFLinkerTool"
-				LinkLibraryDependencies="false"
-				AdditionalDependencies="$(NOINHERIT) user32.lib "
-				OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\Release\chiralpl.exe"
-				Version="0.0"
-				AdditionalOptions="/machine:x64"
-				LinkIncremental="linkIncrementalNo"
-				AdditionalLibraryDirectories=""
-				ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\Release/chiralpl.pdb"
-				SubSystem="subSystemConsole"
-				ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\Release\chiralpl.lib"/>
+		<Configuration Name="Release|x64" UseCompiler="ifortCompiler" OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\Release" IntermediateDirectory="chiralpl.dir\Release" TargetName="chiralpl">
+			<Tool Name="VFFortranCompilerTool" AdditionalOptions="/W1 /O2" SuppressStartupBanner="true" Preprocess="preprocessYes" PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;Release\&quot;" ModulePath=".\$(ConfigurationName)" RuntimeLibrary="rtMultiThreadedDLL" ExceptionHandling="0"/>
+			<Tool Name="VFLinkerTool" AdditionalOptions="/machine:x64" OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\Release\chiralpl.exe" Version="0.0" LinkIncremental="linkIncrementalNo" LinkLibraryDependencies="false" ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\Release/chiralpl.pdb" SubSystem="subSystemConsole" ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\Release\chiralpl.lib" AdditionalDependencies="$(NOINHERIT) user32.lib "/>
+			<Tool Name="VFResourceCompilerTool" PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;Release\&quot;"/>
+			<Tool Name="VFMidlTool" GenerateStublessProxies="true" OutputDirectory="$(IntDir)" HeaderFileName="$(InputName).h" DLLDataFileName="" InterfaceIdentifierFileName="$(InputName)_i.c" ProxyFileName="$(InputName)_p.c" TypeLibraryName="$(InputName).tlb"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool"/>
 		</Configuration>
-		<Configuration
-			Name="MinSizeRel|x64"
-			OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel"
-			IntermediateDirectory="chiralpl.dir\MinSizeRel"
-			ConfigurationType="1"
-			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
-			TargetName="chiralpl"
-			TargetExt=".exe"
-			CharacterSet="2">
-			<Tool
-				Name="VFFortranCompilerTool"
-				ModulePath=".\$(ConfigurationName)"
-				AdditionalOptions="/W1"
-				AssemblerListingLocation="$(IntDir)\"
-				ExceptionHandling="0"
-				Optimization="optimizeMinSpace"
-				Preprocess="preprocessYes"
-				RuntimeLibrary="rtMultiThreadedDLL"
-				SuppressStartupBanner="true"
-				PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;MinSizeRel\&quot;"
-				ObjectFile="$(IntDir)\"
-/>
-			<Tool
-				Name="VFCustomBuildTool"/>
-			<Tool
-				Name="VFResourceCompilerTool"
-				PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;MinSizeRel\&quot;"
-			/>
-			<Tool
-				Name="VFMIDLTool"
-				MkTypLibCompatible="false"
-				TargetEnvironment="3"
-				GenerateStublessProxies="true"
-				TypeLibraryName="$(InputName).tlb"
-				OutputDirectory="$(IntDir)"
-				HeaderFileName="$(InputName).h"
-				DLLDataFileName=""
-				InterfaceIdentifierFileName="$(InputName)_i.c"
-				ProxyFileName="$(InputName)_p.c"/>
-			<Tool
-				Name="VFManifestTool"/>
-			<Tool
-				Name="VFPreBuildEventTool"/>
-			<Tool
-				Name="VFPreLinkEventTool"/>
-			<Tool
-				Name="VFPostBuildEventTool"/>
-			<Tool
-				Name="VFLinkerTool"
-				LinkLibraryDependencies="false"
-				AdditionalDependencies="$(NOINHERIT) user32.lib "
-				OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel\chiralpl.exe"
-				Version="0.0"
-				AdditionalOptions="/machine:x64"
-				LinkIncremental="linkIncrementalNo"
-				AdditionalLibraryDirectories=""
-				ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel/chiralpl.pdb"
-				SubSystem="subSystemConsole"
-				ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel\chiralpl.lib"/>
+		<Configuration Name="MinSizeRel|x64" UseCompiler="ifortCompiler" OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel" IntermediateDirectory="chiralpl.dir\MinSizeRel" TargetName="chiralpl">
+			<Tool Name="VFFortranCompilerTool" AdditionalOptions="/W1" SuppressStartupBanner="true" Optimization="optimizeMinSpace" Preprocess="preprocessYes" PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;MinSizeRel\&quot;" ModulePath=".\$(ConfigurationName)" RuntimeLibrary="rtMultiThreadedDLL" ExceptionHandling="0"/>
+			<Tool Name="VFLinkerTool" AdditionalOptions="/machine:x64" OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel\chiralpl.exe" Version="0.0" LinkIncremental="linkIncrementalNo" LinkLibraryDependencies="false" ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel/chiralpl.pdb" SubSystem="subSystemConsole" ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\MinSizeRel\chiralpl.lib" AdditionalDependencies="$(NOINHERIT) user32.lib "/>
+			<Tool Name="VFResourceCompilerTool" PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;MinSizeRel\&quot;"/>
+			<Tool Name="VFMidlTool" GenerateStublessProxies="true" OutputDirectory="$(IntDir)" HeaderFileName="$(InputName).h" DLLDataFileName="" InterfaceIdentifierFileName="$(InputName)_i.c" ProxyFileName="$(InputName)_p.c" TypeLibraryName="$(InputName).tlb"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool"/>
 		</Configuration>
-		<Configuration
-			Name="RelWithDebInfo|x64"
-			OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo"
-			IntermediateDirectory="chiralpl.dir\RelWithDebInfo"
-			ConfigurationType="1"
-			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
-			TargetName="chiralpl"
-			TargetExt=".exe"
-			CharacterSet="2">
-			<Tool
-				Name="VFFortranCompilerTool"
-				ModulePath=".\$(ConfigurationName)"
-				AdditionalOptions="/W1 /O2"
-				AssemblerListingLocation="$(IntDir)\"
-				DebugInformationFormat="debugEnabled"
-				ExceptionHandling="0"
-				Preprocess="preprocessYes"
-				RuntimeLibrary="rtMultiThreadedDLL"
-				SuppressStartupBanner="true"
-				PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;RelWithDebInfo\&quot;"
-				ObjectFile="$(IntDir)\"
-/>
-			<Tool
-				Name="VFCustomBuildTool"/>
-			<Tool
-				Name="VFResourceCompilerTool"
-				PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;RelWithDebInfo\&quot;"
-			/>
-			<Tool
-				Name="VFMIDLTool"
-				MkTypLibCompatible="false"
-				TargetEnvironment="3"
-				GenerateStublessProxies="true"
-				TypeLibraryName="$(InputName).tlb"
-				OutputDirectory="$(IntDir)"
-				HeaderFileName="$(InputName).h"
-				DLLDataFileName=""
-				InterfaceIdentifierFileName="$(InputName)_i.c"
-				ProxyFileName="$(InputName)_p.c"/>
-			<Tool
-				Name="VFManifestTool"/>
-			<Tool
-				Name="VFPreBuildEventTool"/>
-			<Tool
-				Name="VFPreLinkEventTool"/>
-			<Tool
-				Name="VFPostBuildEventTool"/>
-			<Tool
-				Name="VFLinkerTool"
-				LinkLibraryDependencies="false"
-				AdditionalDependencies="$(NOINHERIT) user32.lib "
-				OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo\chiralpl.exe"
-				Version="0.0"
-				AdditionalOptions="/machine:x64 /debug /INCREMENTAL"
-				AdditionalLibraryDirectories=""
-				ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo/chiralpl.pdb"
-				GenerateDebugInformation="true"
-				SubSystem="subSystemConsole"
-				ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo\chiralpl.lib"/>
+		<Configuration Name="RelWithDebInfo|x64" UseCompiler="ifortCompiler" OutputDirectory="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo" IntermediateDirectory="chiralpl.dir\RelWithDebInfo" TargetName="chiralpl">
+			<Tool Name="VFFortranCompilerTool" AdditionalOptions="/W1 /O2" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Preprocess="preprocessYes" PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;RelWithDebInfo\&quot;" ModulePath=".\$(ConfigurationName)" RuntimeLibrary="rtMultiThreadedDLL" ExceptionHandling="0"/>
+			<Tool Name="VFLinkerTool" AdditionalOptions="/machine:x64 /debug /INCREMENTAL" OutputFile="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo\chiralpl.exe" Version="0.0" LinkLibraryDependencies="false" GenerateDebugInformation="true" ProgramDatabaseFile="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo/chiralpl.pdb" SubSystem="subSystemConsole" ImportLibrary="C:\Users\louis\Documents\GitHub\chiralpl\RelWithDebInfo\chiralpl.lib" AdditionalDependencies="$(NOINHERIT) user32.lib "/>
+			<Tool Name="VFResourceCompilerTool" PreprocessorDefinitions=";NDEBUG;CMAKE_INTDIR=\&quot;RelWithDebInfo\&quot;"/>
+			<Tool Name="VFMidlTool" GenerateStublessProxies="true" OutputDirectory="$(IntDir)" HeaderFileName="$(InputName).h" DLLDataFileName="" InterfaceIdentifierFileName="$(InputName)_i.c" ProxyFileName="$(InputName)_p.c" TypeLibraryName="$(InputName).tlb"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool"/>
 		</Configuration>
 	</Configurations>
 	<Files>
-			<File
-				RelativePath="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt">
-				<FileConfiguration
-					Name="Debug|x64">
-					<Tool
-					Name="VFCustomBuildTool"
-					Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt"
-					CommandLine="setlocal&#x0D;&#x0A;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#x0D;&#x0A;if %errorlevel% neq 0 goto :cmEnd&#x0D;&#x0A;:cmEnd&#x0D;&#x0A;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#x0D;&#x0A;:cmErrorLevel&#x0D;&#x0A;exit /b %1&#x0D;&#x0A;:cmDone&#x0D;&#x0A;if %errorlevel% neq 0 goto :VCEnd"
-					AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"
-					Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp"/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|x64">
-					<Tool
-					Name="VFCustomBuildTool"
-					Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt"
-					CommandLine="setlocal&#x0D;&#x0A;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#x0D;&#x0A;if %errorlevel% neq 0 goto :cmEnd&#x0D;&#x0A;:cmEnd&#x0D;&#x0A;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#x0D;&#x0A;:cmErrorLevel&#x0D;&#x0A;exit /b %1&#x0D;&#x0A;:cmDone&#x0D;&#x0A;if %errorlevel% neq 0 goto :VCEnd"
-					AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"
-					Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp"/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="MinSizeRel|x64">
-					<Tool
-					Name="VFCustomBuildTool"
-					Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt"
-					CommandLine="setlocal&#x0D;&#x0A;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#x0D;&#x0A;if %errorlevel% neq 0 goto :cmEnd&#x0D;&#x0A;:cmEnd&#x0D;&#x0A;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#x0D;&#x0A;:cmErrorLevel&#x0D;&#x0A;exit /b %1&#x0D;&#x0A;:cmDone&#x0D;&#x0A;if %errorlevel% neq 0 goto :VCEnd"
-					AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"
-					Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp"/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="RelWithDebInfo|x64">
-					<Tool
-					Name="VFCustomBuildTool"
-					Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt"
-					CommandLine="setlocal&#x0D;&#x0A;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#x0D;&#x0A;if %errorlevel% neq 0 goto :cmEnd&#x0D;&#x0A;:cmEnd&#x0D;&#x0A;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#x0D;&#x0A;:cmErrorLevel&#x0D;&#x0A;exit /b %1&#x0D;&#x0A;:cmDone&#x0D;&#x0A;if %errorlevel% neq 0 goto :VCEnd"
-					AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"
-					Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp"/>
-				</FileConfiguration>
-			</File>
-		<Filter
-			Name="Source Files"
-			Filter="">
-			<File
-				RelativePath="C:\Users\louis\Documents\GitHub\chiralpl\chiralpl.f90">
-			</File>
+		<Filter Name="Source Files">
+			<File RelativePath="C:\Users\louis\Documents\GitHub\chiralpl\chiralpl.f90"/>
 		</Filter>
+		<File RelativePath="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt">
+			<FileConfiguration Name="RelWithDebInfo|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="setlocal&#xA;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#xA;if %errorlevel% neq 0 goto :cmEnd&#xA;:cmEnd&#xA;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#xA;:cmErrorLevel&#xA;exit /b %1&#xA;:cmDone&#xA;if %errorlevel% neq 0 goto :VCEnd" Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt" Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp" AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"/>
+			</FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="setlocal&#xA;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#xA;if %errorlevel% neq 0 goto :cmEnd&#xA;:cmEnd&#xA;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#xA;:cmErrorLevel&#xA;exit /b %1&#xA;:cmDone&#xA;if %errorlevel% neq 0 goto :VCEnd" Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt" Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp" AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"/>
+			</FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="setlocal&#xA;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#xA;if %errorlevel% neq 0 goto :cmEnd&#xA;:cmEnd&#xA;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#xA;:cmErrorLevel&#xA;exit /b %1&#xA;:cmDone&#xA;if %errorlevel% neq 0 goto :VCEnd" Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt" Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp" AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"/>
+			</FileConfiguration>
+			<FileConfiguration Name="MinSizeRel|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="setlocal&#xA;&quot;C:\Program Files\CMake\bin\cmake.exe&quot; -SC:/Users/louis/Documents/GitHub/chiralpl -BC:/Users/louis/Documents/GitHub/chiralpl --check-stamp-file C:/Users/louis/Documents/GitHub/chiralpl/CMakeFiles/generate.stamp&#xA;if %errorlevel% neq 0 goto :cmEnd&#xA;:cmEnd&#xA;endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone&#xA;:cmErrorLevel&#xA;exit /b %1&#xA;:cmDone&#xA;if %errorlevel% neq 0 goto :VCEnd" Description="Building Custom Rule C:/Users/louis/Documents/GitHub/chiralpl/CMakeLists.txt" Outputs="C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\generate.stamp" AdditionalDependencies="C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeCommonLanguageInclude.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeFortranInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeGenericSystem.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeInitializeConfigs.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeLanguageInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeRCInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\CMakeSystemSpecificInitialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\CMakeCommonCompilerMacros.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Compiler\Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeCommonLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeFortranLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Internal\CMakeRCLinkerInformation.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Linker\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Initialize.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel-Fortran.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-Intel.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows-MSVC.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\Windows.cmake&quot;;&quot;C:\Program Files\CMake\share\cmake-3.31\Modules\Platform\WindowsPaths.cmake&quot;;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeFortranCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeRCCompiler.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeFiles\3.31.0-rc2\CMakeSystem.cmake;C:\Users\louis\Documents\GitHub\chiralpl\CMakeLists.txt;"/>
+			</FileConfiguration>
+		</File>
 	</Files>
-	<Globals>
-	</Globals>
+	<Globals/>
 </VisualStudioProject>
