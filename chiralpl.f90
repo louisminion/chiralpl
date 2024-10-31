@@ -12,7 +12,8 @@ module variables
     
     !Constants
     real(wp), parameter :: eV = 8065.0_wp !1 eV = 8065cm^-1
-    real(wp), parameter :: pi = 4.d0*datan(1.d0)
+    real(wp), parameter :: pi = 4.d0*datan(1.d0) ! good way of getting pi to highest machine precision available
+    real(wp), parameter :: epsilon = 1.0_wp 
 
     ! INPUTS TO ENSURE A DEFAULT
     character*256 :: INPUT_NAME
@@ -25,7 +26,9 @@ module variables
     logical :: save_evals = .false.
     logical :: save_evecs = .false.
     logical :: twist_z = .false.
+    logical :: manual_coupling = .true. ! if true, then doesn't calculate JCouplings individually, just uses inputs JCoulx,JCouly,JCoulz
     integer :: max_vibs
+    integer :: n_nearest_neighbour = 1
     real(wp) :: lambda_neutral  = 1.0_wp
     real(wp) :: w00 = 14000.0_wp
     real(wp) :: hw = 1400.0_wp
@@ -37,7 +40,10 @@ module variables
     real(wp) :: th_x = 700.0_wp
     real(wp) :: th_y = 700.0_wp  
     real(wp) :: lw  = 250.0_wp
-    real(wp) :: phi = 10.0_wp ! twist angle for chiral aggregates
+    real(wp) :: phi = 0.0_wp ! twist angle for chiral aggregates
+    real(wp) :: x_spacing = 1.0_wp
+    real(wp) :: y_spacing = 1.0_wp
+    real(wp) :: z_spacing = 1.0_wp ! in case stacking is further spaced than spacing along polymer
 
     ! state counters
     integer :: general_counter = 0
@@ -54,6 +60,8 @@ module variables
     ! franck-condon table
     real(wp), allocatable :: fc_ground_to_neutral(:,:)
 
+    ! array of dipole moment vectors
+    real(wp), allocatable :: mu_xyz(:,:)
 
     ! hamiltonian, H
     ! The hamiltonian is a 2d array
@@ -72,8 +80,12 @@ module variables
     ! For property calculations
     complex(kind=wp), parameter :: complex_zero = ( 0_wp, 0_wp )
     real(wp), allocatable :: pl_osc(:)
+    real(wp), allocatable :: xpl_osc(:)
+    real(wp), allocatable :: ypl_osc(:)
     integer, parameter  :: spec_steps = 2600
-
+    real(wp), allocatable :: pl_spec(:)
+    real(wp), allocatable :: pl_specx(:)
+    real(wp), allocatable :: pl_specy(:) 
 end module
 
 program chiralpl
@@ -85,7 +97,6 @@ program chiralpl
     character*8  :: date_now
     character*10 :: time_now
     external :: dsyevr, dlamch
-    real(wp) :: pl_spec(spec_steps) = 0.0_wp 
     !declare variables
 
     print*, '*****************************************'
@@ -103,6 +114,7 @@ program chiralpl
     if ( bool_two_particle_states ) call twoParticleIndex()
     print*, 'Precalculating vibrational overlap integrals'
     call calcFranckCondonTables()
+    call dipole_moment() ! precalc dipole moment vectors for each molecule
     print*,'Hamiltonian size()','(',general_counter,general_counter,')'
     estimated_RAM = ((((1.0_wp*general_counter)**2)*64)/(8.0_wp*1.0E9_wp))
     if ( estimated_RAM> 8.0_wp) then
@@ -161,11 +173,12 @@ program chiralpl
         write(*,*) 'Skipping saving eigenvectors' 
     end if
     print*,'Calculating PL oscillator strengths'
+    write(*,'(A,F10.5,A)') '0K: EMISSION FROM LOWEST EXCITON WITH ENERGY:',EVAL(1),'cm^-1'
     call pl()
-    print*,'Calculating PL spectrum'
-    call calc_pl_spec(pl_spec)
-    print*,'Writing out PL spectrum'
-    call write_pl(pl_spec)
+    call pl_output()
+    write(*,*)'Calculating PL spectrum'
+    call calc_pl_spec()
+    call write_pl()
     ! call absorption
 
     ! ! Need to setup dipoles in chiral manner
@@ -222,6 +235,16 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) lattice_dimy
             case ( 'LATTICE_DIMZ' )
                 read(buffer, *, iostat=io_stat) lattice_dimz
+            case ( 'X_SPACING')
+                read(buffer, *, iostat=io_stat) x_spacing
+            case ( 'Y_SPACING')
+                read(buffer, *, iostat=io_stat) y_spacing
+            case ( 'Z_SPACING')
+                read(buffer, *, iostat=io_stat) z_spacing
+            case ( 'MANUAL_COUPLING' )
+                read(buffer, *, iostat=io_stat) manual_coupling
+            case ( 'NEAREST_NEIGHBOURS' )
+                read(buffer, *, iostat=io_stat) n_nearest_neighbour
             case ( 'TWIST_ANGLE' )
                 read(buffer, *, iostat=io_stat) phi
             case( 'TWIST_Z' )
@@ -266,6 +289,9 @@ subroutine readInput()
     JCoulx = JCoulx * eV / hw
     JCouly = JCouly * eV / hw
     JCoulz = JCoulz * eV / hw
+
+
+    phi = pi*(phi/180.0_wp)
 end subroutine
 
 
@@ -424,26 +450,85 @@ function factorial(j) result(fac)
 
 end function factorial
 
-function dipole_moment(x,y,z) result(mu)
+! function dipole_moment(x,y,z) result(mu)
+!     use variables
+!     implicit none
+!     real(wp) , dimension(3) :: mu
+!     integer, intent(in) :: x,y,z
+!     mu = 0.0_wp
+!     mu(1) = cos(z*phi)
+!     mu(2) = sin(z*phi)
+! end function
+
+subroutine dipole_moment
     use variables
     implicit none
-    real(wp) , dimension(3) :: mu
-    integer, intent(in) :: x,y,z
-    mu = 0.0_wp
-    mu(1) = cos(z*phi)
-    mu(2) = sin(z*phi)
-end function
+    integer :: ix,iy,iz,ixyz
+    allocate(mu_xyz(lattice_count,3))
+    mu_xyz = 0.0_wp
+    do ix=1,lattice_dimx
+        do iy=1,lattice_dimy
+            do iz=1,lattice_dimz
+                ixyz = lattice_index_arr(ix,iy,iz)
+                mu_xyz(ixyz,1) = cos(iz*phi) ! H-stack of dipoles
+                mu_xyz(ixyz,2) = sin(iz*phi) ! H-stack of dipoles
+            end do
+        end do
+    end do
+end subroutine
 
-
+!pure
 pure real(wp) function coupling(x1,y1,z1,x2,y2,z2)
     use variables
     integer, intent(in) :: x1,y1,z1,x2,y2,z2
-    integer :: d_x, d_y, d_z
+    integer :: d_x, d_y, d_z, i_xyz1, i_xyz2
+    real(wp) :: dx,dy,dz
+    real(wp), dimension(3) :: R, R_norm
+    real(wp) :: R_mag
+    real(wp) :: CT_couple_alongchain
+    real(wp) :: dipole_dot_product
+    real(wp) :: mu1_dotR
+    real(wp) :: mu2_dotR
+    coupling  = 0.0_wp
+
     d_x = abs(x2-x1)
     d_y = abs(y2-y1)
     d_z = abs(z2-z1)
-    coupling  = 0.0_wp
-    if (d_y .eq. 0 .and. d_z .eq. 0) then
+    if (manual_coupling .eq. .true.) then
+        go to 78
+    end if
+    CT_couple_alongchain = 0.0_wp
+    dipole_dot_product = 0.0_wp
+    mu1_dotR = 0.0_wp
+    mu2_dotR = 0.0_wp
+
+    if (x1 .eq. x2) then
+        if (z1 .eq. z2) then
+            if (y1 .eq. y2) then
+                return ! don't calc coupling if same lattice site
+            else
+                ! maybe add CT contribution to coupling
+                continue ! for now skip
+            end if 
+        end if
+    end if
+    ! Calculate coupling using point dipole approximation, Jc = (mu1.mu2 - 3(mu1.R_norm)(mu2.R_norm))/(4*pi*epsilon*R_mag)
+    dx = (d_x*1.0_wp)*x_spacing
+    dy = (d_y*1.0_wp)*y_spacing
+    dz = (d_z*1.0_wp)*z_spacing
+    R(1) = dx
+    R(2) = dy
+    R(3) = dz
+    R_mag = sqrt((dx**2)+(dy**2)+(dz**2))
+    R_norm = (1/R_mag)*R
+    i_xyz1 = lattice_index_arr(x1,y1,z1)
+    i_xyz2 = lattice_index_arr(x2,y2,z2)
+    dipole_dot_product = mu_xyz(i_xyz1,1)*mu_xyz(i_xyz2,1) + mu_xyz(i_xyz1,2)*mu_xyz(i_xyz2,2) + mu_xyz(i_xyz1,3)*mu_xyz(i_xyz2,3)
+    mu1_dotR = mu_xyz(i_xyz1,1)*R_norm(1) + mu_xyz(i_xyz1,2)*R_norm(2) + mu_xyz(i_xyz1,2)*R_norm(2)
+    mu2_dotR = mu_xyz(i_xyz2,1)*R_norm(1) + mu_xyz(i_xyz2,2)*R_norm(2) + mu_xyz(i_xyz2,2)*R_norm(2)
+    coupling = (1/(4*pi*epsilon*(R_mag**3)))*(dipole_dot_product-(3*mu1_dotR*mu2_dotR))
+    return
+    78 if (d_y .eq. 0 .and. d_z .eq. 0) then
         if (d_x .eq. 1) then
             coupling = JCoulx !+ te_x + th_x
         end if
@@ -666,6 +751,8 @@ subroutine Diagonalize(A,RANGE,N,W,M,I_U)
 end subroutine
 
 
+
+
 subroutine pl()
     use variables
     implicit none
@@ -675,17 +762,36 @@ subroutine pl()
     real(wp) :: c_nv
     real(wp) :: c_nvmv, c_mvnv
     complex(kind=wp) :: I_from_n, I_twoparticle
+    complex(kind=wp) :: I_from_nx, I_twoparticlex
+    complex(kind=wp) :: I_from_ny, I_twoparticley
     complex(kind=wp) :: I_00
     complex(kind=wp) :: I_01
     complex(kind=wp) :: I_02
     complex(kind=wp) :: I_03
     complex(kind=wp) :: I_04
 
-    allocate(pl_osc(max_vibs))
-    pl_osc = 0.0_wp
+    complex(kind=wp) :: I_00x
+    complex(kind=wp) :: I_01x
+    complex(kind=wp) :: I_02x
+    complex(kind=wp) :: I_03x
+    complex(kind=wp) :: I_04x
 
+    complex(kind=wp) :: I_00y
+    complex(kind=wp) :: I_01y
+    complex(kind=wp) :: I_02y
+    complex(kind=wp) :: I_03y
+    complex(kind=wp) :: I_04y
+
+    allocate(pl_osc(max_vibs+1)) ! need to account for 0-0 as well
+    pl_osc = 0.0_wp
+    allocate(xpl_osc(max_vibs+1))
+    xpl_osc = 0.0_wp
+    allocate(ypl_osc(max_vibs+1))
+    ypl_osc = 0.0_wp
     !!!!!! 0-0 intensity calculation !!!!!!
     I_00 = complex_zero
+    I_00x = complex_zero
+    I_00y = complex_zero
     do i_x=1,lattice_dimx  ! sum over all n,v-tilde
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
@@ -694,28 +800,38 @@ subroutine pl()
                     h_i = one_particle_index_arr( i_xyz, vib )
                     c_nv = H(h_i,1) ! get coefficient of one-particle state in eigenbasis
                     I_00 = I_00 + c_nv*fc_ground_to_neutral(vib,0) !*dipole_moment(x,y,z) !implement variable dipole later
+                    I_00x = I_00x + c_nv*fc_ground_to_neutral(vib,0)*mu_xyz(i_xyz,1)
+                    I_00y = I_00y + c_nv*fc_ground_to_neutral(vib,0)*mu_xyz(i_xyz,2)
                 end do
             end do
         end do
     end do
     I_00 = I_00*conjg(I_00) ! dconjg is obselete, conjg will generally know the kind of its variable
-    write(*,*) I_00
+    I_00x = I_00x*conjg(I_00x)
+    I_00y = I_00y*conjg(I_00y)
     pl_osc(1) = I_00%re
+    xpl_osc(1) = I_00x%re
+    ypl_osc(1) = I_00y%re
     if (max_vibs < 1) then
         return
     end if
-
     !!!!!! 0-1 intensity calculation !!!!!!
     I_01 = complex_zero
+    I_01x = complex_zero
+    I_01y = complex_zero
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
                 n = lattice_index_arr(i_x,i_y,i_z)
                 I_from_n = complex_zero
+                I_from_nx = complex_zero
+                I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
                     c_nv = H(h_i,1)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(1,vib) ! *dipole moment
+                    I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(1,vib)*mu_xyz(n,1)
+                    I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(1,vib)*mu_xyz(n,2)
                 end do
                 ! second terms aren't summed over all one-site vibrations
                 do i_x2=1,lattice_dimx   ! sum over all over sites
@@ -727,32 +843,45 @@ subroutine pl()
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,1) !
                                 c_nvmv = H(h_i,1)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
+                                I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
+                                I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
                             end do
                         end do
                     end do
                 end do
                 I_from_n = I_from_n*conjg(I_from_n)
+                I_from_nx = I_from_nx*conjg(I_from_nx)
+                I_from_ny = I_from_ny*conjg(I_from_ny)
                 I_01 = I_01 + I_from_n
+                I_01x = I_01x + I_from_nx
+                I_01y = I_01y + I_from_ny
             end do
         end do
     end do
-    write(*,*) I_01
+    pl_osc(2) = I_01%re
+    xpl_osc(2) = I_01x%re
+    ypl_osc(2) = I_01y%re
     if (max_vibs < 2) then
         return
     end if
-    pl_osc(2) = I_01%re
     !!!!!! 0-2 intensity calculation !!!!!!
     I_02 = complex_zero
+    I_02x = complex_zero
+    I_02y = complex_zero
     ! one-particle terms
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
                 n = lattice_index_arr(i_x,i_y,i_z)
                 I_from_n = complex_zero
+                I_from_nx = complex_zero
+                I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
                     c_nv = H(h_i,1)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(2,vib) ! *dipole moment
+                    I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(2,vib)*mu_xyz(n,1)
+                    I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(2,vib)*mu_xyz(n,2)
                 end do
                 ! second terms aren't summed over all one-site vibrations
                 do i_x2=1,lattice_dimx   ! sum over all over sites
@@ -764,17 +893,25 @@ subroutine pl()
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,2) !
                                 c_nvmv = H(h_i,1)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
+                                I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
+                                I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
                             end do
                         end do
                     end do
                 end do
                 I_from_n = I_from_n*conjg(I_from_n)
+                I_from_nx = I_from_nx*conjg(I_from_nx)
+                I_from_ny = I_from_ny*conjg(I_from_ny)
                 I_02 = I_02 + I_from_n
+                I_02x = I_02x + I_from_nx
+                I_02y = I_02y + I_from_ny
             end do
         end do
     end do
     ! two particle terms
     I_twoparticle = complex_zero
+    I_twoparticlex = complex_zero
+    I_twoparticley = complex_zero
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
@@ -784,15 +921,23 @@ subroutine pl()
                         do i_z2=1,lattice_dimz
                             i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                             I_from_n = complex_zero
+                            I_from_nx = complex_zero
+                            I_from_ny = complex_zero
                             do vib=0, max_vibs
                                 h_i = two_particle_index_arr(n,vib,i_xyz2,1)
                                 c_nvmv = H(h_i,1)
                                 h_i = two_particle_index_arr(i_xyz2,vib,n,1)
                                 c_mvnv = H(H_i,1)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(1,vib) + c_mvnv*fc_ground_to_neutral(1,vib) !*dipole moments of n
+                                I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,1) + c_mvnv*fc_ground_to_neutral(1,vib)*mu_xyz(i_xyz2,1)
+                                I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,2) + c_mvnv*fc_ground_to_neutral(1,vib)*mu_xyz(i_xyz2,2)
                             end do
                             I_from_n  =  I_from_n*conjg(I_from_n)
+                            I_from_nx  =  I_from_nx*conjg(I_from_nx)
+                            I_from_ny  =  I_from_ny*conjg(I_from_ny)
                             I_twoparticle = I_twoparticle + I_from_n
+                            I_twoparticlex = I_twoparticlex + I_from_nx
+                            I_twoparticley = I_twoparticley + I_from_ny
                         end do
                     end do
                 end do
@@ -800,26 +945,37 @@ subroutine pl()
         end do
     end do
     I_twoparticle = 0.5_wp*I_twoparticle
+    I_twoparticlex = 0.5_wp*I_twoparticlex
+    I_twoparticley = 0.5_wp*I_twoparticley
     I_02 = I_02 + I_twoparticle
+    I_02x = I_02x + I_twoparticlex
+    I_02y = I_02y + I_twoparticley
     pl_osc(3) = I_02%re
+    xpl_osc(3) = I_02x%re
+    ypl_osc(3) = I_02y%re
     ! write(*,*) I_02
     if (max_vibs < 3) then
         return
     end if
-
     !!!!!! 0-3 intensity calculation !!!!!!
 
     I_03 = complex_zero
+    I_03x = complex_zero
+    I_03y = complex_zero
     ! one-particle terms
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
                 n = lattice_index_arr(i_x,i_y,i_z)
                 I_from_n = complex_zero
+                I_from_nx = complex_zero
+                I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
                     c_nv = H(h_i,1)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(3,vib) ! *dipole moment
+                    I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(3,vib)*mu_xyz(n,1)
+                    I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(3,vib)*mu_xyz(n,2)
                 end do
                 ! second terms aren't summed over all one-site vibrations
                 do i_x2=1,lattice_dimx   ! sum over all over sites
@@ -831,17 +987,25 @@ subroutine pl()
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,3) !
                                 c_nvmv = H(h_i,1)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
+                                I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
+                                I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
                             end do
                         end do
                     end do
                 end do
                 I_from_n = I_from_n*conjg(I_from_n)
+                I_from_nx = I_from_nx*conjg(I_from_nx)
+                I_from_ny = I_from_ny*conjg(I_from_ny)
                 I_03 = I_03 + I_from_n
+                I_03x = I_03x + I_from_nx
+                I_03y = I_03y + I_from_ny
             end do
         end do
     end do
     ! two particle terms
     I_twoparticle = complex_zero
+    I_twoparticlex = complex_zero
+    I_twoparticley = complex_zero
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
@@ -851,15 +1015,23 @@ subroutine pl()
                         do i_z2=1,lattice_dimz
                             i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                             I_from_n = complex_zero
+                            I_from_nx = complex_zero
+                            I_from_ny = complex_zero
                             do vib=0, max_vibs
                                 h_i = two_particle_index_arr(n,vib,i_xyz2,1)
                                 c_nvmv = H(h_i,1)
                                 h_i = two_particle_index_arr(i_xyz2,vib,n,2)
                                 c_mvnv = H(H_i,1)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(1,vib) + c_mvnv*fc_ground_to_neutral(2,vib) !*dipole moments of n
+                                I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,1) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,1)
+                                I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,2) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,2)
                             end do
                             I_from_n  =  I_from_n*conjg(I_from_n)
+                            I_from_nx  =  I_from_nx*conjg(I_from_nx)
+                            I_from_ny  =  I_from_ny*conjg(I_from_ny)
                             I_twoparticle = I_twoparticle + I_from_n
+                            I_twoparticlex = I_twoparticlex + I_from_nx
+                            I_twoparticley = I_twoparticley + I_from_ny
                         end do
                     end do
                 end do
@@ -867,9 +1039,14 @@ subroutine pl()
         end do
     end do
     I_twoparticle = 0.5_wp*I_twoparticle
+    I_twoparticlex = 0.5_wp*I_twoparticlex
+    I_twoparticley = 0.5_wp*I_twoparticley
     I_03 = I_03 + I_twoparticle
+    I_03x = I_03x + I_twoparticlex
+    I_03y = I_03y + I_twoparticley
     pl_osc(4) = I_03%re
-
+    xpl_osc(4) = I_03x%re
+    ypl_osc(4) = I_03y%re
     if (max_vibs < 4) then
         return
     end if
@@ -877,16 +1054,22 @@ subroutine pl()
     !!!!!! 0-4 intensity calculation !!!!!!
 
     I_04 = complex_zero
+    I_04x = complex_zero
+    I_04y = complex_zero
     ! one-particle terms
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
                 n = lattice_index_arr(i_x,i_y,i_z)
                 I_from_n = complex_zero
+                I_from_nx = complex_zero
+                I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
                     c_nv = H(h_i,1)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(4,vib) ! *dipole moment
+                    I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(4,vib)*mu_xyz(n,1)
+                    I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(4,vib)*mu_xyz(n,2)
                 end do
                 ! second terms aren't summed over all one-site vibrations
                 do i_x2=1,lattice_dimx   ! sum over all over sites
@@ -898,17 +1081,25 @@ subroutine pl()
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,4) !
                                 c_nvmv = H(h_i,1)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
+                                I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
+                                I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
                             end do
                         end do
                     end do
                 end do
                 I_from_n = I_from_n*conjg(I_from_n)
+                I_from_nx = I_from_nx*conjg(I_from_nx)
+                I_from_ny = I_from_ny*conjg(I_from_ny)
                 I_04 = I_04 + I_from_n
+                I_04x = I_04x + I_from_nx
+                I_04y = I_04y + I_from_ny
             end do
         end do
     end do
     ! two particle terms
     I_twoparticle = complex_zero
+    I_twoparticlex = complex_zero
+    I_twoparticley = complex_zero
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
@@ -918,15 +1109,23 @@ subroutine pl()
                         do i_z2=1,lattice_dimz
                             i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                             I_from_n = complex_zero
+                            I_from_nx = complex_zero
+                            I_from_ny = complex_zero
                             do vib=0, max_vibs
                                 h_i = two_particle_index_arr(n,vib,i_xyz2,2)
                                 c_nvmv = H(h_i,1)
                                 h_i = two_particle_index_arr(i_xyz2,vib,n,2)
                                 c_mvnv = H(H_i,1)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(2,vib) + c_mvnv*fc_ground_to_neutral(2,vib) !*dipole moments of n
+                                I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(2,vib)*mu_xyz(n,1) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,1)
+                                I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(2,vib)*mu_xyz(n,2) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,2)
                             end do
                             I_from_n  =  I_from_n*conjg(I_from_n)
+                            I_from_nx  =  I_from_nx*conjg(I_from_nx)
+                            I_from_ny  =  I_from_ny*conjg(I_from_ny)
                             I_twoparticle = I_twoparticle + I_from_n
+                            I_twoparticlex = I_twoparticlex + I_from_nx
+                            I_twoparticley = I_twoparticley + I_from_ny
                         end do
                     end do
                 end do
@@ -934,46 +1133,78 @@ subroutine pl()
         end do
     end do
     I_twoparticle = 0.5_wp*I_twoparticle
+    I_twoparticlex = 0.5_wp*I_twoparticlex
+    I_twoparticley = 0.5_wp*I_twoparticley
     I_04 = I_04 + I_twoparticle
+    I_04x = I_04x + I_twoparticlex
+    I_04y = I_04y + I_twoparticley
     pl_osc(5) = I_04%re
-
+    xpl_osc(5) = I_04x%re
+    ypl_osc(5) = I_04y%re
 
 end subroutine
 
-subroutine calc_pl_spec(plspec)
+
+subroutine pl_output()
     use variables
     implicit none
-    integer :: spec_point, vt
-    real(wp), intent(out) :: plspec(spec_steps)
-    real(wp) :: spectrum_start, spectrum_end, energy
-    real(wp) :: lineshape, sum_w
-    real(wp) :: exciton_energy
-    
-    spectrum_start = 0.0_wp
-    spectrum_end = 20000.0_wp/hw
-    exciton_energy = EVAL(1)
-    write(*,*) exciton_energy, 'EXCITON'   
-    do spec_point=1,spec_steps
-        energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
-        sum_w = 0.0_wp
-        do vt=0,max_vibs
-            lineshape = dexp(-(energy - exciton_energy + (vt*1.0_wp))**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
-            sum_w = sum_w + lineshape*pl_osc((vt+1))*((exciton_energy-(vt*1.0_wp))**3)
-        end do
-        plspec(spec_point) = sum_w
+    integer :: vt
+    character*256 :: peak
+    print*, '*****************************************'
+    print*, '         PL Oscillator Strengths'
+    print*, '*****************************************'
+    write(*,'(A5,A14,A14,A14)') 'PEAKS','UNPOL','X','Y'
+    do vt=1,max_vibs+1
+        write(peak,'(A4,I1)'), 'I_0-',(vt-1)
+        write(*,'(A5,F14.7,F14.7,F14.7)'), peak, pl_osc(vt), xpl_osc(vt),ypl_osc(vt)
     end do
 
 end subroutine
 
 
-subroutine write_pl(plspec)
+subroutine calc_pl_spec()
+    use variables
+    implicit none
+    integer :: spec_point, vt
+    real(wp) :: spectrum_start, spectrum_end, energy
+    real(wp) :: lineshape, sum_w,sum_wx, sum_wy
+    real(wp) :: exciton_energy
+    allocate(pl_spec(spec_steps))
+    allocate(pl_specx(spec_steps))
+    allocate(pl_specy(spec_steps))
+    pl_spec = 0.0_wp
+    pl_specx = 0.0_wp
+    pl_specy = 0.0_wp
+    spectrum_start = 0.0_wp
+    spectrum_end = 20000.0_wp/hw
+    exciton_energy = EVAL(1)   
+    do spec_point=1,spec_steps
+        energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
+        sum_w = 0.0_wp
+        sum_wx = 0.0_wp
+        sum_wy = 0.0_wp
+        do vt=0,max_vibs
+            lineshape = dexp(-(energy - exciton_energy + (vt*1.0_wp))**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
+            sum_w = sum_w + lineshape*pl_osc((vt+1))*((exciton_energy-(vt*1.0_wp))**3)
+            sum_wx = sum_wx + lineshape*xpl_osc((vt+1))*((exciton_energy-(vt*1.0_wp))**3)
+            sum_wy = sum_wy + lineshape*ypl_osc((vt+1))*((exciton_energy-(vt*1.0_wp))**3)
+        end do
+        pl_spec(spec_point) = sum_w
+        pl_specx(spec_point) = sum_wx
+        pl_specy(spec_point) = sum_wy
+    end do
+
+end subroutine
+
+
+subroutine write_pl()
     use variables
     implicit none
     integer :: spec_point
     real(wp) :: spectrum_start, spectrum_end, energy
-    real(wp) :: plspec(spec_steps)
     write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_pl.csv')
     eval_out_f = trim(eval_out_f)
+    write(*,('(a,a)')) 'Writing PL to ',eval_out_f
     101 format(*(F14.7, :, ","))
     spectrum_start = 0.0_wp   
     spectrum_end = spectrum_start + 20000.0_wp/hw 
@@ -983,10 +1214,23 @@ subroutine write_pl(plspec)
     write(668,*) 'ENERGY OF EMITTING EXCITON',EVAL(1)*hw
     write(668,*) 'hw',hw
     write(668,*) 'MAX_VIBS',max_vibs
-    write(668,102) 'Energy','PL'
+    write(668,102) 'Energy','PL','PLX','PLY'
     do spec_point=1,spec_steps
         energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
-        write( 668, 101 ) energy*hw ,plspec(spec_point)
+        write( 668, 101 ) energy*hw ,pl_spec(spec_point), pl_specx(spec_point),pl_specy(spec_point)
     end do
     close(668)
+end subroutine
+
+
+
+subroutine cpl()
+    use variables
+    implicit none
+    integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
+    integer i_x2,i_y2,i_z2,i_xyz2,vib2 ! indices for ground state vibrational excitation (for two particle states)
+    integer :: h_i
+    real(wp) :: c_nv
+    real(wp) :: c_nvmv, c_mvnv
+    write(*,*) 'CPL calculation'
 end subroutine
