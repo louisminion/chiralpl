@@ -173,7 +173,7 @@ program chiralpl
         write(*,*) 'Skipping saving eigenvectors' 
     end if
     print*,'Calculating PL oscillator strengths'
-    write(*,'(A,F10.5,A)') '0K: EMISSION FROM LOWEST EXCITON WITH ENERGY:',EVAL(1),'cm^-1'
+    write(*,'(A,F10.5,A)') '0K: EMISSION FROM LOWEST EXCITON WITH ENERGY:',EVAL(1)*hw,'cm^-1'
     call pl()
     call pl_output()
     write(*,*)'Calculating PL spectrum'
