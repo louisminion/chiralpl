@@ -25,7 +25,6 @@ module variables
     logical :: H_out = .false.
     logical :: save_evals = .false.
     logical :: save_evecs = .false.
-    logical :: twist_z = .false.
     logical :: manual_coupling = .true. ! if true, then doesn't calculate JCouplings individually, just uses inputs JCoulx,JCouly,JCoulz
     integer :: max_vibs
     integer :: n_nearest_neighbour = 1
@@ -86,6 +85,19 @@ module variables
     real(wp), allocatable :: pl_spec(:)
     real(wp), allocatable :: pl_specx(:)
     real(wp), allocatable :: pl_specy(:) 
+
+    contains
+
+        function cross(a,b) result(crs)
+            implicit none
+            real(wp), dimension(3) :: crs
+            real(wp), intent(in),dimension(3) :: a,b
+            crs(1) = a(2)*b(3) - a(3)*b(2)
+            crs(2) = a(3)*b(1) - a(1)*b(3)
+            crs(3) = a(1)*b(2) - a(2)*b(1)
+            return
+        end function
+
 end module
 
 program chiralpl
@@ -98,6 +110,7 @@ program chiralpl
     character*10 :: time_now
     external :: dsyevr, dlamch
     !declare variables
+
 
     print*, '*****************************************'
     print*, '                 chiralpl'
@@ -183,7 +196,7 @@ program chiralpl
 
     ! ! Need to setup dipoles in chiral manner
     ! call photoluminescence
-
+    call cpl()
     ! call circularlypolarizedluminescence
 
 
@@ -247,8 +260,6 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) n_nearest_neighbour
             case ( 'TWIST_ANGLE' )
                 read(buffer, *, iostat=io_stat) phi
-            case( 'TWIST_Z' )
-                read(buffer, *, iostat=io_stat) twist_z
             case ( 'ONE_PARTICLE_STATES' )
                 read(buffer, *, iostat=io_stat) bool_one_particle_states
             case ( 'TWO_PARTICLE_STATES' )
@@ -1227,10 +1238,92 @@ end subroutine
 subroutine cpl()
     use variables
     implicit none
-    integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
-    integer i_x2,i_y2,i_z2,i_xyz2,vib2 ! indices for ground state vibrational excitation (for two particle states)
+    integer i_x, i_y, i_z, n, vib ! indices for vibronic excitations
+    integer i_x2,i_y2,i_z2,m,vib2 ! indices for ground state vibrational excitation (for two particle states)
+    integer i_x3,i_y3,i_z3,n2,vib3 ! indices for third iteration
     integer :: h_i
-    real(wp) :: c_nv
+    real(wp),dimension(3) :: mu_n, mu_m ! dipole moment vectors for m and n 
+    real(wp),dimension(3) :: r_m, r_n, rdiff ! position vectors for m and n, and between them
+    real(wp) :: c_nv, c_mv
     real(wp) :: c_nvmv, c_mvnv
+    real(wp) :: R_00, R_01
+    real(wp), dimension(3) :: crossproduct
     write(*,*) 'CPL calculation'
+    r_m = 0.0_wp
+    r_n = 0.0_wp
+    rdiff = 0.0_wp
+    R_00 = 0.0_wp
+    do i_x=1,lattice_dimx  ! sum over all n,v-tilde
+        do i_y=1,lattice_dimy
+            do i_z=1,lattice_dimz
+                n = lattice_index_arr(i_x,i_y,i_z)
+                r_n(1) = i_x*x_spacing
+                r_n(2) = i_y*y_spacing
+                r_n(3) = i_z*z_spacing
+                do i_x2=1,lattice_dimx
+                    do i_y2=1,lattice_dimy
+                        do i_z2=1,lattice_dimz
+                            m = lattice_index_arr(i_x2,i_y2,i_z2)
+                            if (n .eq. m) cycle
+                            !<psi(em)|mu(n)|g,0> X <psi(em)|mu(m)|g,0>.(rm-rn)
+                            mu_m = mu_xyz(m,:)
+                            mu_n = mu_xyz(n,:)
+                            crossproduct = cross(mu_n,mu_m)
+                            r_m(1) = i_x2*x_spacing
+                            r_m(2) = i_y2*y_spacing
+                            r_m(3) = i_z2*z_spacing
+                            rdiff = r_m-r_n
+                            do vib=0,max_vibs
+                                do vib2=0,max_vibs
+                                    h_i = one_particle_index_arr( n, vib )
+                                    c_nv = H(h_i,1)
+                                    h_i = one_particle_index_arr( m, vib2 )
+                                    c_mv = H(h_i,1)
+                                    R_00 = R_00 + c_nv*c_mv*fc_ground_to_neutral(0,vib)*fc_ground_to_neutral(vib2,0)*dot_product(crossproduct,rdiff)  
+                                end do
+
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+        end do
+    end do
+    write(*,*) 'R_00', R_00
+    ! R_00 = R_00*(2*k)/(mu**2)
+    R_01 = 0.0_wp
+    do i_x=1,lattice_dimx
+        do i_y=1,lattice_dimy
+            do i_z=1,lattice_dimz
+                do i_x2=1,lattice_dimx
+                    do i_y2=1,lattice_dimy
+                        do i_z2=1,lattice_dimz
+
+                        end do
+                    end do
+                end do
+            end do
+        end do
+    end do
+    ! do i_x=1,lattice_dimx
+    !     do i_y=1,lattice_dimy
+    !         do i_z=1,lattice_dimz
+    !             do i_x2=1,lattice_dimx
+    !                 do i_y2=1,lattice_dimy
+    !                     do i_z2=1,lattice_dimz
+    !                         do i_x3=1,lattice_dimx
+    !                             do i_y3=1,lattice_dimy
+    !                                 do i_z3=1,lattice_dimz
+                                    
+    !                                 end do
+    !                             end do
+    !                         end do
+    !                     end do
+    !                 end do
+    !             end do
+    !         end do
+    !     end do
+    ! end do
 end subroutine
+
+
