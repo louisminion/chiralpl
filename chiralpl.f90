@@ -1,12 +1,11 @@
-! Program to calculate the PL/CPL spectra of chiral aggregate using the Holstein Hamiltonian
-! 2D coupling will be incorporated via the methods of R Ghosh
-! Problem is to build the Hamiltonian of a system representing a chiral stack of conjugated polymers
-! Use the theory developed by F Spano to calculate TDs of each chromophore
-! - Two particle basis set
-
-! Starting by putting in subroutine calls as basic logic breakdown
-! The majority of this code was heavily inspired by the code of N J Hestand and R Ghosh in exciton_1d and polaron_cmsf90
-! No code is reproduced here, but algorithms are reproduced under the MIT license those codes were released with.
+! chiralpl
+! version 0
+! 2024 Louis Minion
+! This program uses the Frenkel-Holstein Hamiltonian to model a 3D lattice of organic chromophores
+! It uses the multiparticle basis set of Philpott, truncating to one- and two-particle states only (two-particle approximation)
+! The Hamiltonian is first constructed, then projected into its eigenbasis.
+! Properties are then calculated from the eigenstates and vectors.
+! Hartree units are used throughout.
 module variables
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     
@@ -14,6 +13,7 @@ module variables
     real(wp), parameter :: eV = 8065.0_wp !1 eV = 8065cm^-1
     real(wp), parameter :: pi = 4.d0*datan(1.d0) ! good way of getting pi to highest machine precision available
     real(wp), parameter :: epsilon = 1.0_wp 
+    real(wp), parameter :: Debye = 2.541765_wp ! Debye per dipole in AU
 
     ! INPUTS TO ENSURE A DEFAULT
     character*256 :: INPUT_NAME
@@ -31,6 +31,7 @@ module variables
     real(wp) :: lambda_neutral  = 1.0_wp
     real(wp) :: w00 = 14000.0_wp
     real(wp) :: hw = 1400.0_wp
+    real(wp) :: mu_0 = 1.0_wp*Debye
     real(wp) :: JCoulx = -0.2_wp
     real(wp) :: JCouly = -0.15_wp
     real(wp) :: JCoulz = 0.5_wp
@@ -84,7 +85,8 @@ module variables
     integer, parameter  :: spec_steps = 2600
     real(wp), allocatable :: pl_spec(:)
     real(wp), allocatable :: pl_specx(:)
-    real(wp), allocatable :: pl_specy(:) 
+    real(wp), allocatable :: pl_specy(:)
+    
 
     contains
 
@@ -270,6 +272,8 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) lambda_neutral
             case ( 'MONOMER_TRANSITION')
                 read(buffer, *, iostat=io_stat) w00
+            case ( 'TRANSITION_DIPOLE' )
+                read(buffer, *, iostat=io_stat) mu_0
             case ( 'JCOULX' )
                 read(buffer, *, iostat=io_stat) JCoulx
             case ( 'JCOULY' )
@@ -303,6 +307,7 @@ subroutine readInput()
 
 
     phi = pi*(phi/180.0_wp)
+    mu_0 = mu_0/Debye
 end subroutine
 
 
@@ -481,8 +486,8 @@ subroutine dipole_moment
         do iy=1,lattice_dimy
             do iz=1,lattice_dimz
                 ixyz = lattice_index_arr(ix,iy,iz)
-                mu_xyz(ixyz,1) = cos(iz*phi) ! H-stack of dipoles
-                mu_xyz(ixyz,2) = sin(iz*phi) ! H-stack of dipoles
+                mu_xyz(ixyz,1) = mu_0*cos(iz*phi) ! H-stack of dipoles
+                mu_xyz(ixyz,2) = mu_0*sin(iz*phi) ! H-stack of dipoles
             end do
         end do
     end do
@@ -1239,7 +1244,7 @@ subroutine cpl()
     use variables
     implicit none
     integer i_x, i_y, i_z, n, vib ! indices for vibronic excitations
-    integer i_x2,i_y2,i_z2,m,vib2 ! indices for ground state vibrational excitation (for two particle states)
+    integer i_x2,i_y2,i_z2,m,vib2, n1 ! indices for ground state vibrational excitation (for two particle states)
     integer i_x3,i_y3,i_z3,n2,vib3 ! indices for third iteration
     integer :: h_i
     real(wp),dimension(3) :: mu_n, mu_m ! dipole moment vectors for m and n 
@@ -1295,9 +1300,31 @@ subroutine cpl()
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
             do i_z=1,lattice_dimz
+                n = lattice_index_arr(i_x,i_y,i_z)
+                r_n(1) = i_x*x_spacing
+                r_n(2) = i_y*y_spacing
+                r_n(3) = i_z*z_spacing
                 do i_x2=1,lattice_dimx
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
+                            m = lattice_index_arr(i_x2,i_y2,i_z2)
+                            if (n .eq. m) cycle
+                            mu_m = mu_xyz(m,:)
+                            mu_n = mu_xyz(n,:)
+                            crossproduct = cross(mu_n,mu_m)
+                            r_m(1) = i_x2*x_spacing
+                            r_m(2) = i_y2*y_spacing
+                            r_m(3) = i_z2*z_spacing
+                            rdiff = r_m-r_n
+                            do vib=0,max_vibs
+                                do vib2=0,max_vibs
+                                    h_i = one_particle_index_arr( n, vib )
+                                    c_nv = H(h_i,1)
+                                    h_i = two_particle_index_arr( m, vib2 ,n,1)
+                                    c_nvmv = H(h_i,1)
+                                    R_01 = R_01 + fc_ground_to_neutral(vib,1)*fc_ground_to_neutral(0,vib2)*c_nv*c_nvmv*dot_product(crossproduct,rdiff)
+                                end do
+                            end do
 
                         end do
                     end do
@@ -1305,25 +1332,49 @@ subroutine cpl()
             end do
         end do
     end do
-    ! do i_x=1,lattice_dimx
-    !     do i_y=1,lattice_dimy
-    !         do i_z=1,lattice_dimz
-    !             do i_x2=1,lattice_dimx
-    !                 do i_y2=1,lattice_dimy
-    !                     do i_z2=1,lattice_dimz
-    !                         do i_x3=1,lattice_dimx
-    !                             do i_y3=1,lattice_dimy
-    !                                 do i_z3=1,lattice_dimz
-                                    
-    !                                 end do
-    !                             end do
-    !                         end do
-    !                     end do
-    !                 end do
-    !             end do
-    !         end do
-    !     end do
-    ! end do
+    do i_x=1,lattice_dimx
+        do i_y=1,lattice_dimy
+            do i_z=1,lattice_dimz
+                n = lattice_index_arr(i_x,i_y,i_z)
+                do i_x2=1,lattice_dimx
+                    do i_y2=1,lattice_dimy
+                        do i_z2=1,lattice_dimz
+                            n1 = lattice_index_arr(i_x2,i_y2,i_z2)
+                            r_n(1) = i_x2*x_spacing
+                            r_n(2) = i_y2*y_spacing
+                            r_n(3) = i_z2*z_spacing
+                            do i_x3=1,lattice_dimx
+                                do i_y3=1,lattice_dimy
+                                    do i_z3=1,lattice_dimz
+                                        n2 = lattice_index_arr(i_x3,i_y3,i_z3)
+                                        if (n1 .eq. n2) cycle
+                                        mu_m = mu_xyz(n2,:)
+                                        mu_n = mu_xyz(n1,:)
+                                        crossproduct = cross(mu_n,mu_m)
+                                        r_m(1) = i_x3*x_spacing
+                                        r_m(2) = i_y3*y_spacing
+                                        r_m(3) = i_z3*z_spacing
+                                        rdiff = r_m-r_n
+                                        do vib2=0,max_vibs
+                                            do vib3=0,max_vibs
+                                                h_i = two_particle_index_arr(n1,vib2,n,1)
+                                                c_nv = H(h_i,1)
+                                                h_i = two_particle_index_arr(n2,vib3,n,1)
+                                                c_nvmv = H(h_i,1)
+                                                R_01 = R_01 + fc_ground_to_neutral(vib2,0)*fc_ground_to_neutral(vib3,0)*c_nv*c_nvmv*dot_product(crossproduct,rdiff)
+                                            end do
+                                        end do
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+        end do
+    end do
+    write(*,*) 'R_01', R_01
+
 end subroutine
 
 
