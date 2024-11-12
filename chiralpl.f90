@@ -14,7 +14,7 @@ module variables
     real(wp), parameter :: pi = 4.d0*datan(1.d0) ! good way of getting pi to highest machine precision available
     real(wp), parameter :: epsilon = 1.0_wp 
     real(wp), parameter :: Debye = 2.541765_wp ! Debye per dipole in AU
-
+    real(wp), parameter :: c = 137.035999177 ! 1/alpha in Hartree atomic units
     ! INPUTS TO ENSURE A DEFAULT
     character*256 :: INPUT_NAME
     integer:: lattice_dimx = 1
@@ -44,7 +44,7 @@ module variables
     real(wp) :: x_spacing = 1.0_wp
     real(wp) :: y_spacing = 1.0_wp
     real(wp) :: z_spacing = 1.0_wp ! in case stacking is further spaced than spacing along polymer
-
+    real(wp) :: k = 1.0_wp ! k=w00/c
     ! state counters
     integer :: general_counter = 0
     integer :: lattice_count = 0
@@ -79,6 +79,8 @@ module variables
 
     ! For property calculations
     complex(kind=wp), parameter :: complex_zero = ( 0_wp, 0_wp )
+    complex(kind=wp), allocatable:: abs_osc_strengths_x(:)
+    complex(kind=wp), allocatable:: abs_osc_strengths_y(:)
     real(wp), allocatable :: pl_osc(:)
     real(wp), allocatable :: xpl_osc(:)
     real(wp), allocatable :: ypl_osc(:)
@@ -86,7 +88,8 @@ module variables
     real(wp), allocatable :: pl_spec(:)
     real(wp), allocatable :: pl_specx(:)
     real(wp), allocatable :: pl_specy(:)
-    
+    real(wp), allocatable :: abs_specx(:)
+    real(wp), allocatable :: abs_specy(:)   
 
     contains
 
@@ -194,6 +197,11 @@ program chiralpl
     write(*,*)'Calculating PL spectrum'
     call calc_pl_spec()
     call write_pl()
+    print*,'Calculating Abs oscillator strengths'
+    call absorption()
+    write(*,*)'Calculating Abs spectrum'
+    call calc_abs_spec()
+    call write_abs()
     ! call absorption
 
     ! ! Need to setup dipoles in chiral manner
@@ -308,6 +316,7 @@ subroutine readInput()
 
     phi = pi*(phi/180.0_wp)
     mu_0 = mu_0/Debye
+    k = w00/c
 end subroutine
 
 
@@ -486,8 +495,8 @@ subroutine dipole_moment
         do iy=1,lattice_dimy
             do iz=1,lattice_dimz
                 ixyz = lattice_index_arr(ix,iy,iz)
-                mu_xyz(ixyz,1) = mu_0*cos(iz*phi) ! H-stack of dipoles
-                mu_xyz(ixyz,2) = mu_0*sin(iz*phi) ! H-stack of dipoles
+                mu_xyz(ixyz,1) = mu_0*cos((iz*1.0_wp)*phi) ! H-stack of dipoles
+                mu_xyz(ixyz,2) = mu_0*sin((iz*1.0_wp)*phi) ! H-stack of dipoles
             end do
         end do
     end do
@@ -766,7 +775,95 @@ subroutine Diagonalize(A,RANGE,N,W,M,I_U)
     deallocate( Z, WORK, IWORK )
 end subroutine
 
+subroutine absorption()
+    use variables
+    implicit none
+    integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
+    integer j
+    integer :: h_i
+    real(wp) :: c_nv
+    allocate(abs_osc_strengths_x(general_counter))
+    allocate(abs_osc_strengths_y(general_counter))
 
+    abs_osc_strengths_x = complex_zero
+    abs_osc_strengths_y = complex_zero
+
+    do j=1,general_counter
+        do i_x=1,lattice_dimx  ! sum over all n,v-tilde
+            do i_y=1,lattice_dimy
+                do i_z=1,lattice_dimz
+                    i_xyz = lattice_index_arr(i_x,i_y,i_z) ! get n
+                    do vib=0,max_vibs
+                        h_i = one_particle_index_arr( i_xyz, vib )
+                        if ( h_i == empty ) cycle
+                        c_nv = H(h_i,j)
+                        abs_osc_strengths_y(j) = abs_osc_strengths_y(j) + c_nv*fc_ground_to_neutral(0,vib)*mu_xyz(i_xyz,2)
+                        abs_osc_strengths_x(j) = abs_osc_strengths_x(j) + c_nv*fc_ground_to_neutral(0,vib)*mu_xyz(i_xyz,1)
+                    end do
+                end do
+            end do
+        end do
+        abs_osc_strengths_x(j) = abs_osc_strengths_x(j)*conjg(abs_osc_strengths_x(j))
+        abs_osc_strengths_y(j) = abs_osc_strengths_y(j)*conjg(abs_osc_strengths_y(j))
+    end do
+end subroutine
+
+subroutine calc_abs_spec()
+    use variables
+    implicit none
+    integer :: spec_point, j
+    real(wp) :: energy, eigenstate_energy
+    real(wp) :: lineshape,sum_wx, sum_wy,step
+    allocate(abs_specx(spec_steps))
+    allocate(abs_specy(spec_steps))
+    abs_specx = 0.0_wp
+    abs_specy = 0.0_wp
+    step = (min(maxval(EVAL),minval(EVAL) + 10000/hw) - minval(EVAL) + 8.0_wp*lw)/(1.0_wp*spec_steps) ! restrict spectrum to full or 10000cm-1 window
+    energy = minval(eval)-4.0_wp*lw
+    do spec_point=1,spec_steps
+        energy = energy + step ! each spec_point add same amount to energy
+        sum_wx = 0.0_wp
+        sum_wy = 0.0_wp
+        do j=1,general_counter
+            eigenstate_energy = EVAL(j)
+            lineshape = dexp(-(energy - eigenstate_energy)**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
+            sum_wx = sum_wx + lineshape*abs_osc_strengths_x(j)
+            sum_wy = sum_wy + lineshape*abs_osc_strengths_y(j)
+        end do
+        sum_wx = sum_wx*(1.0_wp/(1.0_wp*lattice_count))
+        sum_wy = sum_wy*(1.0_wp/(1.0_wp*lattice_count)) ! 1/N normalisation
+        abs_specx(spec_point) = sum_wx
+        abs_specy(spec_point) = sum_wy
+    end do
+
+end subroutine
+
+
+subroutine write_abs()
+    use variables
+    implicit none
+    integer :: spec_point
+    real(wp) :: step, energy
+
+    write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_abs.csv')
+    eval_out_f = trim(eval_out_f)
+    write(*,('(a,a)')) 'Writing Absorption to ',eval_out_f
+    108 format(*(F14.7, :, ","))
+    open(unit=669, file=eval_out_f, action='write')
+    109 format(*(A14, :, ","))
+    write(669,*) trim(INPUT_NAME)
+    write(669,*) 'hw',hw
+    write(669,*) 'MAX_VIBS',max_vibs
+    write(669,109) 'Energy','ABSX','ABSY'
+    
+    step = (min(maxval(EVAL),minval(EVAL) + 10000/hw) - minval(EVAL) + 8.0_wp*lw)/(1.0_wp*spec_steps) ! restrict spectrum to full or 10000cm-1 window
+    energy = minval(eval)-4.0_wp*lw
+    do spec_point=1,spec_steps
+        energy = energy + step
+        write( 669, 108 ) energy*hw, abs_specx(spec_point),abs_specy(spec_point)
+    end do
+    close(669)
+end subroutine
 
 
 subroutine pl()
@@ -1192,7 +1289,7 @@ subroutine calc_pl_spec()
     pl_specx = 0.0_wp
     pl_specy = 0.0_wp
     spectrum_start = 0.0_wp
-    spectrum_end = 20000.0_wp/hw
+    spectrum_end = w00+10.0_wp*lw
     exciton_energy = EVAL(1)   
     do spec_point=1,spec_steps
         energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
@@ -1223,7 +1320,7 @@ subroutine write_pl()
     write(*,('(a,a)')) 'Writing PL to ',eval_out_f
     101 format(*(F14.7, :, ","))
     spectrum_start = 0.0_wp   
-    spectrum_end = spectrum_start + 20000.0_wp/hw 
+    spectrum_end = spectrum_start + w00+10.0_wp*lw
     open(unit=668, file=eval_out_f, action='write')
     102 format(*(A14, :, ","))
     write(668,*) trim(INPUT_NAME)
@@ -1277,7 +1374,7 @@ subroutine cpl()
                             r_m(1) = i_x2*x_spacing
                             r_m(2) = i_y2*y_spacing
                             r_m(3) = i_z2*z_spacing
-                            rdiff = r_m-r_n
+                            rdiff = r_n-r_m
                             do vib=0,max_vibs
                                 do vib2=0,max_vibs
                                     h_i = one_particle_index_arr( n, vib )
@@ -1294,8 +1391,8 @@ subroutine cpl()
             end do
         end do
     end do
+    R_00 = R_00*(k)/(mu_0**2)
     write(*,*) 'R_00', R_00
-    ! R_00 = R_00*(2*k)/(mu**2)
     R_01 = 0.0_wp
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
@@ -1315,7 +1412,7 @@ subroutine cpl()
                             r_m(1) = i_x2*x_spacing
                             r_m(2) = i_y2*y_spacing
                             r_m(3) = i_z2*z_spacing
-                            rdiff = r_m-r_n
+                            rdiff = r_n-r_m
                             do vib=0,max_vibs
                                 do vib2=0,max_vibs
                                     h_i = one_particle_index_arr( n, vib )
@@ -1354,7 +1451,7 @@ subroutine cpl()
                                         r_m(1) = i_x3*x_spacing
                                         r_m(2) = i_y3*y_spacing
                                         r_m(3) = i_z3*z_spacing
-                                        rdiff = r_m-r_n
+                                        rdiff = r_n-r_m
                                         do vib2=0,max_vibs
                                             do vib3=0,max_vibs
                                                 h_i = two_particle_index_arr(n1,vib2,n,1)
@@ -1373,6 +1470,8 @@ subroutine cpl()
             end do
         end do
     end do
+    R_01 = R_01*(k)/(mu_0**2)
+
     write(*,*) 'R_01', R_01
 
 end subroutine
