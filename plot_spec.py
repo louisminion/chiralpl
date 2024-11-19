@@ -57,11 +57,65 @@ ax.plot(dfabs['Wavelength'],dfabs['ABSY'],color='blue',linestyle='dashed',label=
 ax2=ax.twinx()
 ax2.plot(df['Wavelength'],df['PLX'],color='red')
 ax2.plot(df['Wavelength'],df['PLY'],color='red',linestyle='dashed')
-
 ax.set_xlim(min(dfabs['Wavelength']),dfabs['Wavelength'].max()+(dfabs['Wavelength'].max()-dfabs['Wavelength'].min()))
 ax.set_xlabel('Wavelength (nm)')
 ax.set_ylabel('Absorption')
 ax2.set_ylabel('Photoluminescence')
 fig.legend(loc='upper right')
 plt.tight_layout()
+plt.savefig(f+'_plabs.png')
+plt.show()
+
+dipolef = f + '_dipoles.dat'
+dipoles = np.loadtxt(dipolef,delimiter=',',skiprows=1)
+with open(dipolef) as file:
+    lines = [line.rstrip() for line in file]
+latticex=int(lines[0].split()[-1].split(',')[0])
+latticey=int(lines[0].split()[-1].split(',')[1])
+latticez=int(lines[0].split()[-1].split(',')[2])
+lattice_index_arr = np.zeros((latticex,latticey,latticez))
+counter = 0
+for i in range(0,latticex):
+    for j in range(0,latticey):
+        for k in range(0,latticez):
+            lattice_index_arr[i,j,k]=counter
+            counter+=1
+x = []
+y = []
+z = []
+u= []
+v = []
+w = []
+for i in range(0,latticex):
+    for j in range(0,latticey):
+        for k in range(0,latticez):
+            x.append(i)
+            y.append(j)
+            z.append(k)
+            u.append(dipoles[int(lattice_index_arr[i,j,k])][0])
+            v.append(dipoles[int(lattice_index_arr[i,j,k])][1])
+            w.append(dipoles[int(lattice_index_arr[i,j,k])][2])
+ax = plt.figure().add_subplot(projection='3d')
+ax.quiver(x, y, z, u, v, w, length=0.5, normalize=True,pivot='middle')
+ax.set_xlim(-1,max(x)+1)
+ax.set_ylim(-1,max(y)+1)
+ax.set_zlim(-1,max(z)+1)
+plt.savefig(f+'_dipoles.png')
+
+plt.show()
+
+
+cpl_file = f + '_cpl.csv'
+
+
+df= pd.read_csv(cpl_file,skiprows=4)
+df = df.rename(columns=lambda x: x.strip())
+fig,ax = plt.subplots()
+
+df['Wavelength'] = (1/df['Energy'])*1E7
+ax.plot(df['Energy'],df['GLUM'])
+ax.set_xlabel('Wavenumber (cm$^{-1}$)')
+ax.set_ylabel('g-factor (arbitrary scale)')
+plt.savefig(f+'_cpl_cm^-1.png')
+
 plt.show()

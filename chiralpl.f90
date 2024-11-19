@@ -15,11 +15,13 @@ module variables
     real(wp), parameter :: epsilon = 1.0_wp 
     real(wp), parameter :: Debye = 2.541765_wp ! Debye per dipole in AU
     real(wp), parameter :: c = 137.035999177 ! 1/alpha in Hartree atomic units
+    real(wp), parameter :: kB = 0.6956925_wp ! boltzmann constant Eh/K
     ! INPUTS TO ENSURE A DEFAULT
     character*256 :: INPUT_NAME
     integer:: lattice_dimx = 1
     integer:: lattice_dimy = 1
     integer:: lattice_dimz = 1
+    integer:: configs = 1
     logical :: bool_one_particle_states = .true.
     logical :: bool_two_particle_states = .true.
     logical :: H_out = .false.
@@ -32,6 +34,7 @@ module variables
     real(wp) :: w00 = 14000.0_wp
     real(wp) :: hw = 1400.0_wp
     real(wp) :: mu_0 = 1.0_wp*Debye
+    real(wp) :: temp = 0.0000001_wp
     real(wp) :: JCoulx = -0.2_wp
     real(wp) :: JCouly = -0.15_wp
     real(wp) :: JCoulz = 0.5_wp
@@ -45,6 +48,11 @@ module variables
     real(wp) :: y_spacing = 1.0_wp
     real(wp) :: z_spacing = 1.0_wp ! in case stacking is further spaced than spacing along polymer
     real(wp) :: k = 1.0_wp ! k=w00/c
+    real(wp) :: sigma=1
+    real(wp),dimension(3) :: l0 = 0.0_wp
+    ! disorder
+    real(wp),allocatable :: A_covar(:,:)
+    real(wp),allocatable :: diagonal_disorder_offsets(:)
     ! state counters
     integer :: general_counter = 0
     integer :: lattice_count = 0
@@ -81,15 +89,19 @@ module variables
     complex(kind=wp), parameter :: complex_zero = ( 0_wp, 0_wp )
     complex(kind=wp), allocatable:: abs_osc_strengths_x(:)
     complex(kind=wp), allocatable:: abs_osc_strengths_y(:)
-    real(wp), allocatable :: pl_osc(:)
-    real(wp), allocatable :: xpl_osc(:)
-    real(wp), allocatable :: ypl_osc(:)
+    complex(kind=wp), allocatable:: abs_osc_strengths_x_configavg(:)
+    complex(kind=wp), allocatable:: abs_osc_strengths_y_configavg(:)
+    real(wp), allocatable :: xpl_osc(:,:)
+    real(wp), allocatable :: ypl_osc(:,:)
+    real(wp), allocatable :: xpl_osc_configavg(:,:)
+    real(wp), allocatable :: ypl_osc_configavg(:,:)  
     integer, parameter  :: spec_steps = 2600
-    real(wp), allocatable :: pl_spec(:)
     real(wp), allocatable :: pl_specx(:)
     real(wp), allocatable :: pl_specy(:)
     real(wp), allocatable :: abs_specx(:)
     real(wp), allocatable :: abs_specy(:)   
+    real(wp), dimension(2) :: rot_strengths
+    real(wp), allocatable :: cpl_spec(:)
 
     contains
 
@@ -105,14 +117,64 @@ module variables
 
 end module
 
+module random_normal_distr
+    use, intrinsic :: iso_fortran_env, only: wp => real64, int64
+    implicit none
+    private
+    public :: box_muller, box_muller_vec
+    contains
+        function box_muller() result(Z)
+            implicit none
+            integer(wp) i
+            real(wp) :: U(2)
+            real(wp) :: Z(2)
+            real(wp),parameter :: pi=4.0_wp*datan(1.0_wp)
+            ! while loop to exclude log(0)
+            do
+                call RANDOM_NUMBER(U)
+                if (U(1) > 0.0_wp) exit
+            end do
+            Z(1)=dsqrt(-2*log(U(1)))*cos(2.0_wp*pi*U(2))
+            Z(2)=dsqrt(-2*log(U(1)))*cos(2.0_wp*pi*U(2))
+        end function
+
+        function box_muller_vec(N,mu,sigma) result(Z)
+            implicit none
+            integer(wp), intent(in) :: N
+            real(wp), intent(in) :: mu, sigma
+            real(wp) :: D(2)
+            real(wp),allocatable :: Z(:)
+            integer(wp) :: i,j
+
+            allocate(Z(N))
+            do i=1,N/2 ! two random numbers are returned for each
+                j = 2*i-1
+                Z(j:j+1) = box_muller()
+            end do
+            ! if N odd, then last element will be empty
+            if (mod(N,2) .ne. 0) then
+                D = box_muller()
+                Z(N) = D(1)
+            end if
+            Z = Z*sigma
+            Z = Z + mu
+            end function
+end module
+
+
+
+
+
 program chiralpl
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     use variables
+    use omp_lib
     implicit none
-    integer :: j
-    real(wp) :: estimated_RAM
+    integer :: j, o
+    real(wp) :: estimated_RAM,begin_disorder_avgtime,end_disorder_avgtime
     character*8  :: date_now
     character*10 :: time_now
+    integer :: threads
     external :: dsyevr, dlamch
     !declare variables
 
@@ -133,6 +195,15 @@ program chiralpl
     print*, 'Precalculating vibrational overlap integrals'
     call calcFranckCondonTables()
     call dipole_moment() ! precalc dipole moment vectors for each molecule
+    ! Export dipole_moment array to draw pics of system
+    write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_dipoles.dat')
+    eval_out_f = trim(eval_out_f)
+    open(unit=33, file=eval_out_f)
+    write(33,'(A,I0,A,I0,A,I0)') 'LATTICE DIMENSIONS (X,Y,Z) ',lattice_dimx,',',lattice_dimy,',',lattice_dimz
+    do j = 1, size(mu_xyz,dim=1)
+        write(33, '(*(F12.8 : ", "))') mu_xyz(j, 1),mu_xyz(j, 2),mu_xyz(j, 3)
+    end do
+    close(33)
     print*,'Hamiltonian size()','(',general_counter,general_counter,')'
     estimated_RAM = ((((1.0_wp*general_counter)**2)*64)/(8.0_wp*1.0E9_wp))
     if ( estimated_RAM> 8.0_wp) then
@@ -148,57 +219,95 @@ program chiralpl
     if ( .not. allocated( EVAL ) ) then
         allocate( EVAL( general_counter ) )
     end if
-    EVAL = 0.0_wp
-    H = 0.0_wp
+    allocate(diagonal_disorder_offsets(lattice_count))
+    call construct_covariance_matrix()
+    call cholesky_decomp(A_covar,lattice_count)
+    allocate(xpl_osc(max_vibs+1,size(EVAL)))
+    allocate(ypl_osc(max_vibs+1,size(EVAL)))
+    allocate(abs_osc_strengths_x(general_counter))
+    allocate(abs_osc_strengths_y(general_counter))
+    allocate(xpl_osc_configavg(max_vibs+1,size(EVAL)))
+    allocate(ypl_osc_configavg(max_vibs+1,size(EVAL)))
+    allocate(abs_osc_strengths_x_configavg(general_counter))
+    allocate(abs_osc_strengths_y_configavg(general_counter))
+    threads = omp_get_num_threads()
+    print*, 'Running on',threads,'threads'
+    call cpu_time(begin_disorder_avgtime)
+    !$OMP PARALLEL PRIVATE(abs_osc_strengths_x,abs_osc_strengths_y,xpl_osc,ypl_osc) SHARED(abs_osc_strengths_x_configavg,abs_osc_strengths_y_configavg,xpl_osc_configavg,ypl_osc_configavg)
+    !$OMP DO
+    do o = 1, configs
+        EVAL = 0.0_wp
+        H = 0.0_wp
+        diagonal_disorder_offsets = 0.0_wp
+        call draw_multivar_distr(lattice_count,diagonal_disorder_offsets,sigma,A_covar)
 
-    if ( bool_one_particle_states ) call build1particleHamiltonian()
-    if ( bool_two_particle_states ) call build2particleHamiltonian()
-    if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian()
-    if (H_out .eq. .true.) then
-        write(*,*) 'Writing out Hamiltonian to File'
-        open(unit=10, file='h_.csv')
-        do j = 1, size(H,dim=1)
-            write(10, '(*(F12.8 : ", "))') H(:, j)
-        end do
-        close(10)
-    else
-        write(*,*) 'Skipping saving Hamiltonian' 
-    end if 
-    call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
+        if ( bool_one_particle_states ) call build1particleHamiltonian()
+        if ( bool_two_particle_states ) call build2particleHamiltonian()
+        if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian()
+        
+        if (sigma .eq. 0.0_wp) then
+            if (H_out .eq. .true.) then
+                write(*,*) 'Writing out Hamiltonian to File'
+                open(unit=10, file='h_.csv')
+                do j = 1, size(H,dim=1)
+                    write(10, '(*(F12.8 : ", "))') H(:, j)
+                end do
+                close(10)
+            else
+                write(*,*) 'Skipping saving Hamiltonian' 
+            end if
+        end if
+                
+        call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
 
-    ! Save eigenvalue logic
-    if (save_evals .eq. .true.) then
-        write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_EVALS.csv')
-        eval_out_f = trim(eval_out_f)
-        write(*,'(a,a)') 'Writing eigenvalues to ', eval_out_f
-        open(unit=11, file=eval_out_f)
-        do j = 1, size(EVAL,dim=1)
-            write(11, '(*(F12.8 : ", "))') EVAL(j)
-        end do
-        close(11)
-    end if
+    ! Save eigenvalue logic (only if sigma 0)
+        if (sigma .eq. 0.0_wp) then
+            if (save_evals .eq. .true.) then
+                write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_EVALS.csv')
+                eval_out_f = trim(eval_out_f)
+                write(*,'(a,a)') 'Writing eigenvalues to ', eval_out_f
+                open(unit=11, file=eval_out_f)
+                do j = 1, size(EVAL,dim=1)
+                    write(11, '(*(F12.8 : ", "))') EVAL(j)
+                end do
+                close(11)
+            end if
+            if (save_evecs .eq. .true.) then
+                write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_EVECS.csv')
+                eval_out_f = trim(eval_out_f)
+                write(*,*) 'Writing out eigenvectors to File'
+                open(unit=15, file=eval_out_f)
+                do j = 1, size(H,dim=1)
+                    write(15, '(*(F12.8 : ", "))') H(:, j) ! H now matrix of eigenvectors
+                end do
+                close(15)
+            else
+                write(*,*) 'Skipping saving eigenvectors' 
+            end if
+        end if
 
-    if (save_evecs .eq. .true.) then
-        write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_EVECS.csv')
-        eval_out_f = trim(eval_out_f)
-        write(*,*) 'Writing out eigenvectors to File'
-        open(unit=15, file=eval_out_f)
-        do j = 1, size(H,dim=1)
-            write(15, '(*(F12.8 : ", "))') H(:, j) ! H now matrix of eigenvectors
-        end do
-        close(15)
-    else
-        write(*,*) 'Skipping saving eigenvectors' 
-    end if
-    print*,'Calculating PL oscillator strengths'
-    write(*,'(A,F10.5,A)') '0K: EMISSION FROM LOWEST EXCITON WITH ENERGY:',EVAL(1)*hw,'cm^-1'
-    call pl()
+        ! print*,'Calculating PL oscillator strengths for iteration', o
+        ! write(*,'(A,F14.5,A)') '0K: EMISSION FROM LOWEST EXCITON WITH ENERGY:',(EVAL(1)*hw),'cm^-1'
+        call pl()
+        xpl_osc_configavg = xpl_osc_configavg + xpl_osc
+        ypl_osc_configavg = ypl_osc_configavg + ypl_osc
+        call absorption()
+        abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg + abs_osc_strengths_x
+        abs_osc_strengths_y_configavg = abs_osc_strengths_y_configavg + abs_osc_strengths_y
+    end do
+    !$OMP END DO
+    !$OMP END PARALLEL
+    call cpu_time(end_disorder_avgtime)
+    print*, 'Configurational average finished in',end_disorder_avgtime-begin_disorder_avgtime,'seconds'
+    xpl_osc_configavg = xpl_osc_configavg/configs
+    ypl_osc_configavg = ypl_osc_configavg/configs
+    abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg/configs
+    abs_osc_strengths_y_configavg = abs_osc_strengths_y_configavg/configs
     call pl_output()
     write(*,*)'Calculating PL spectrum'
     call calc_pl_spec()
     call write_pl()
-    print*,'Calculating Abs oscillator strengths'
-    call absorption()
+    ! print*,'Calculating Abs oscillator strengths'
     write(*,*)'Calculating Abs spectrum'
     call calc_abs_spec()
     call write_abs()
@@ -207,6 +316,8 @@ program chiralpl
     ! ! Need to setup dipoles in chiral manner
     ! call photoluminescence
     call cpl()
+    call calc_cpl_spec()
+    call write_cpl()
     ! call circularlypolarizedluminescence
 
 
@@ -282,6 +393,8 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) w00
             case ( 'TRANSITION_DIPOLE' )
                 read(buffer, *, iostat=io_stat) mu_0
+            case ( 'TEMPERATURE' )
+                read(buffer, *, iostat=io_stat) temp
             case ( 'JCOULX' )
                 read(buffer, *, iostat=io_stat) JCoulx
             case ( 'JCOULY' )
@@ -296,6 +409,12 @@ subroutine readInput()
                 read(buffer, *, iostat=io_stat) save_evals
             case ('SAVE_EIGENVECS')
                 read(buffer, *, iostat=io_stat) save_evecs
+            case ( 'CORRELATION_LENGTH' )
+                read(buffer, *, iostat=io_stat) l0
+            case ( 'NUMBER_CONFIGURATIONS' )
+                read(buffer, *, iostat=io_stat) configs
+            case ( 'DISORDER_WIDTH' )
+                read(buffer, *, iostat=io_stat) sigma
             case default
                 write(*,"(*(a))") 'Unable to assign input variable: ', label
             end select
@@ -592,7 +711,7 @@ subroutine build1particleHamiltonian()
                     i_xyz1 = lattice_index_arr( i_x1, i_y1, i_z1 )
                     h_i = one_particle_index_arr( i_xyz1, vib_i1 )
                     if ( h_i == empty ) cycle
-                    H(h_i, h_i) = vib_i1*1.0_wp + w00
+                    H(h_i, h_i) = vib_i1*1.0_wp + w00 + diagonal_disorder_offsets(i_xyz1)
                     do i_x2=1, lattice_dimx
                         do i_y2=1, lattice_dimy
                             do i_z2=1, lattice_dimz
@@ -762,15 +881,15 @@ subroutine Diagonalize(A,RANGE,N,W,M,I_U)
     ! allocate WORK and IWORK arrays
     allocate(WORK(LWORK))
     allocate(IWORK(LIWORK))
-    print*, ' Begin Hamiltonian diagonalization'
-    print*, '*****************************************'
+    ! print*, ' Begin Hamiltonian diagonalization'
+    ! print*, '*****************************************'
     call cpu_time(DIAG_START)
     call dsyevr(JOBV,RANGE,UPLO,N,A,LDA,VL,VU,IL,I_U,ABSTOL,M,W,Z,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
     call cpu_time(DIAG_END)
-    print*, '        Done'
-    print*, M, 'eigenvalues found'
-    print*, ' Diagonalization done in',(DIAG_END-DIAG_START),'seconds'
-    print*, '*****************************************'
+    ! print*, '        Done'
+    ! print*, M, 'eigenvalues found'
+    ! print*, ' Diagonalization done in',(DIAG_END-DIAG_START),'seconds'
+    ! print*, '*****************************************'
     A(:,1:M) = Z(:,1:M) ! Assign A to Z, (less of Z if M != N)
     deallocate( Z, WORK, IWORK )
 end subroutine
@@ -782,8 +901,6 @@ subroutine absorption()
     integer j
     integer :: h_i
     real(wp) :: c_nv
-    allocate(abs_osc_strengths_x(general_counter))
-    allocate(abs_osc_strengths_y(general_counter))
 
     abs_osc_strengths_x = complex_zero
     abs_osc_strengths_y = complex_zero
@@ -827,8 +944,8 @@ subroutine calc_abs_spec()
         do j=1,general_counter
             eigenstate_energy = EVAL(j)
             lineshape = dexp(-(energy - eigenstate_energy)**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
-            sum_wx = sum_wx + lineshape*abs_osc_strengths_x(j)
-            sum_wy = sum_wy + lineshape*abs_osc_strengths_y(j)
+            sum_wx = sum_wx + lineshape*abs_osc_strengths_x_configavg(j)
+            sum_wy = sum_wy + lineshape*abs_osc_strengths_y_configavg(j)
         end do
         sum_wx = sum_wx*(1.0_wp/(1.0_wp*lattice_count))
         sum_wy = sum_wy*(1.0_wp/(1.0_wp*lattice_count)) ! 1/N normalisation
@@ -871,7 +988,7 @@ subroutine pl()
     implicit none
     integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
     integer i_x2,i_y2,i_z2,i_xyz2,vib2 ! indices for ground state vibrational excitation (for two particle states)
-    integer :: h_i
+    integer :: h_i, j
     real(wp) :: c_nv
     real(wp) :: c_nvmv, c_mvnv
     complex(kind=wp) :: I_from_n, I_twoparticle
@@ -895,12 +1012,10 @@ subroutine pl()
     complex(kind=wp) :: I_03y
     complex(kind=wp) :: I_04y
 
-    allocate(pl_osc(max_vibs+1)) ! need to account for 0-0 as well
-    pl_osc = 0.0_wp
-    allocate(xpl_osc(max_vibs+1))
     xpl_osc = 0.0_wp
-    allocate(ypl_osc(max_vibs+1))
     ypl_osc = 0.0_wp
+
+    do j=1,general_counter
     !!!!!! 0-0 intensity calculation !!!!!!
     I_00 = complex_zero
     I_00x = complex_zero
@@ -911,7 +1026,7 @@ subroutine pl()
                 do vib=0,max_vibs
                     i_xyz = lattice_index_arr(i_x,i_y,i_z) ! get n
                     h_i = one_particle_index_arr( i_xyz, vib )
-                    c_nv = H(h_i,1) ! get coefficient of one-particle state in eigenbasis
+                    c_nv = H(h_i,j) ! get coefficient of one-particle state in eigenbasis
                     I_00 = I_00 + c_nv*fc_ground_to_neutral(vib,0) !*dipole_moment(x,y,z) !implement variable dipole later
                     I_00x = I_00x + c_nv*fc_ground_to_neutral(vib,0)*mu_xyz(i_xyz,1)
                     I_00y = I_00y + c_nv*fc_ground_to_neutral(vib,0)*mu_xyz(i_xyz,2)
@@ -922,9 +1037,8 @@ subroutine pl()
     I_00 = I_00*conjg(I_00) ! dconjg is obselete, conjg will generally know the kind of its variable
     I_00x = I_00x*conjg(I_00x)
     I_00y = I_00y*conjg(I_00y)
-    pl_osc(1) = I_00%re
-    xpl_osc(1) = I_00x%re
-    ypl_osc(1) = I_00y%re
+    xpl_osc(1,j) = I_00x%re
+    ypl_osc(1,j) = I_00y%re
     if (max_vibs < 1) then
         return
     end if
@@ -941,7 +1055,7 @@ subroutine pl()
                 I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
-                    c_nv = H(h_i,1)
+                    c_nv = H(h_i,j)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(1,vib) ! *dipole moment
                     I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(1,vib)*mu_xyz(n,1)
                     I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(1,vib)*mu_xyz(n,2)
@@ -951,10 +1065,12 @@ subroutine pl()
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
                             do vib2=0,max_vibs
+                                if (bool_two_particle_states .eq. .false.) cycle
                                 i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                                 if (i_xyz2 .eq. n) cycle
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,1) !
-                                c_nvmv = H(h_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_nvmv = H(h_i,j)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
                                 I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
                                 I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
@@ -971,9 +1087,8 @@ subroutine pl()
             end do
         end do
     end do
-    pl_osc(2) = I_01%re
-    xpl_osc(2) = I_01x%re
-    ypl_osc(2) = I_01y%re
+    xpl_osc(2,j) = I_01x%re
+    ypl_osc(2,j) = I_01y%re
     if (max_vibs < 2) then
         return
     end if
@@ -991,7 +1106,7 @@ subroutine pl()
                 I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
-                    c_nv = H(h_i,1)
+                    c_nv = H(h_i,j)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(2,vib) ! *dipole moment
                     I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(2,vib)*mu_xyz(n,1)
                     I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(2,vib)*mu_xyz(n,2)
@@ -1001,10 +1116,12 @@ subroutine pl()
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
                             do vib2=0,max_vibs
+                                if (bool_two_particle_states .eq. .false.) cycle
                                 i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                                 if (i_xyz2 .eq. n) cycle
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,2) !
-                                c_nvmv = H(h_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_nvmv = H(h_i,j)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
                                 I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
                                 I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
@@ -1032,15 +1149,17 @@ subroutine pl()
                 do i_x2=1,lattice_dimx
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
+                            if (bool_two_particle_states .eq. .false.) cycle
                             i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                             I_from_n = complex_zero
                             I_from_nx = complex_zero
                             I_from_ny = complex_zero
                             do vib=0, max_vibs
                                 h_i = two_particle_index_arr(n,vib,i_xyz2,1)
-                                c_nvmv = H(h_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_nvmv = H(h_i,j)
                                 h_i = two_particle_index_arr(i_xyz2,vib,n,1)
-                                c_mvnv = H(H_i,1)
+                                c_mvnv = H(H_i,j)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(1,vib) + c_mvnv*fc_ground_to_neutral(1,vib) !*dipole moments of n
                                 I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,1) + c_mvnv*fc_ground_to_neutral(1,vib)*mu_xyz(i_xyz2,1)
                                 I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,2) + c_mvnv*fc_ground_to_neutral(1,vib)*mu_xyz(i_xyz2,2)
@@ -1063,9 +1182,8 @@ subroutine pl()
     I_02 = I_02 + I_twoparticle
     I_02x = I_02x + I_twoparticlex
     I_02y = I_02y + I_twoparticley
-    pl_osc(3) = I_02%re
-    xpl_osc(3) = I_02x%re
-    ypl_osc(3) = I_02y%re
+    xpl_osc(3,j) = I_02x%re
+    ypl_osc(3,j) = I_02y%re
     ! write(*,*) I_02
     if (max_vibs < 3) then
         return
@@ -1085,7 +1203,7 @@ subroutine pl()
                 I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
-                    c_nv = H(h_i,1)
+                    c_nv = H(h_i,j)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(3,vib) ! *dipole moment
                     I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(3,vib)*mu_xyz(n,1)
                     I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(3,vib)*mu_xyz(n,2)
@@ -1095,10 +1213,12 @@ subroutine pl()
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
                             do vib2=0,max_vibs
+                                if (bool_two_particle_states .eq. .false.) cycle
                                 i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                                 if (i_xyz2 .eq. n) cycle
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,3) !
-                                c_nvmv = H(h_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_nvmv = H(h_i,j)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
                                 I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
                                 I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
@@ -1126,15 +1246,18 @@ subroutine pl()
                 do i_x2=1,lattice_dimx
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
+                            if (bool_two_particle_states .eq. .false.) cycle
                             i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                             I_from_n = complex_zero
                             I_from_nx = complex_zero
                             I_from_ny = complex_zero
                             do vib=0, max_vibs
                                 h_i = two_particle_index_arr(n,vib,i_xyz2,1)
-                                c_nvmv = H(h_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_nvmv = H(h_i,j)
                                 h_i = two_particle_index_arr(i_xyz2,vib,n,2)
-                                c_mvnv = H(H_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_mvnv = H(H_i,j)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(1,vib) + c_mvnv*fc_ground_to_neutral(2,vib) !*dipole moments of n
                                 I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,1) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,1)
                                 I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(1,vib)*mu_xyz(n,2) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,2)
@@ -1157,9 +1280,8 @@ subroutine pl()
     I_03 = I_03 + I_twoparticle
     I_03x = I_03x + I_twoparticlex
     I_03y = I_03y + I_twoparticley
-    pl_osc(4) = I_03%re
-    xpl_osc(4) = I_03x%re
-    ypl_osc(4) = I_03y%re
+    xpl_osc(4,j) = I_03x%re
+    ypl_osc(4,j) = I_03y%re
     if (max_vibs < 4) then
         return
     end if
@@ -1179,7 +1301,7 @@ subroutine pl()
                 I_from_ny = complex_zero
                 do vib=0,max_vibs
                     h_i = one_particle_index_arr(n,vib)
-                    c_nv = H(h_i,1)
+                    c_nv = H(h_i,j)
                     I_from_n = I_from_n + c_nv*fc_ground_to_neutral(4,vib) ! *dipole moment
                     I_from_nx = I_from_nx + c_nv*fc_ground_to_neutral(4,vib)*mu_xyz(n,1)
                     I_from_ny = I_from_ny + c_nv*fc_ground_to_neutral(4,vib)*mu_xyz(n,2)
@@ -1189,10 +1311,12 @@ subroutine pl()
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
                             do vib2=0,max_vibs
+                                if (bool_two_particle_states .eq. .false.) cycle
                                 i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                                 if (i_xyz2 .eq. n) cycle
                                 h_i = two_particle_index_arr(i_xyz2,vib2,n,4) !
-                                c_nvmv = H(h_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_nvmv = H(h_i,j)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(0,vib2)
                                 I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,1)
                                 I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(0,vib2)*mu_xyz(i_xyz2,2)
@@ -1220,15 +1344,18 @@ subroutine pl()
                 do i_x2=1,lattice_dimx
                     do i_y2=1,lattice_dimy
                         do i_z2=1,lattice_dimz
+                            if (bool_two_particle_states .eq. .false.) cycle
                             i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
                             I_from_n = complex_zero
                             I_from_nx = complex_zero
                             I_from_ny = complex_zero
                             do vib=0, max_vibs
                                 h_i = two_particle_index_arr(n,vib,i_xyz2,2)
-                                c_nvmv = H(h_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_nvmv = H(h_i,j)
                                 h_i = two_particle_index_arr(i_xyz2,vib,n,2)
-                                c_mvnv = H(H_i,1)
+                                if (h_i .eq. empty) cycle
+                                c_mvnv = H(H_i,j)
                                 I_from_n = I_from_n + c_nvmv*fc_ground_to_neutral(2,vib) + c_mvnv*fc_ground_to_neutral(2,vib) !*dipole moments of n
                                 I_from_nx = I_from_nx + c_nvmv*fc_ground_to_neutral(2,vib)*mu_xyz(n,1) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,1)
                                 I_from_ny = I_from_ny + c_nvmv*fc_ground_to_neutral(2,vib)*mu_xyz(n,2) + c_mvnv*fc_ground_to_neutral(2,vib)*mu_xyz(i_xyz2,2)
@@ -1251,9 +1378,9 @@ subroutine pl()
     I_04 = I_04 + I_twoparticle
     I_04x = I_04x + I_twoparticlex
     I_04y = I_04y + I_twoparticley
-    pl_osc(5) = I_04%re
-    xpl_osc(5) = I_04x%re
-    ypl_osc(5) = I_04y%re
+    xpl_osc(5,j) = I_04x%re
+    ypl_osc(5,j) = I_04y%re
+    end do
 
 end subroutine
 
@@ -1265,11 +1392,13 @@ subroutine pl_output()
     character*256 :: peak
     print*, '*****************************************'
     print*, '         PL Oscillator Strengths'
+    print*, '     (For the lowest energy exciton)'
+    print*, '          Configurational average   '
     print*, '*****************************************'
-    write(*,'(A5,A14,A14,A14)') 'PEAKS','UNPOL','X','Y'
+    write(*,'(A5,A14,A14)') 'PEAKS','X','Y'
     do vt=1,max_vibs+1
         write(peak,'(A4,I1)'), 'I_0-',(vt-1)
-        write(*,'(A5,F14.7,F14.7,F14.7)'), peak, pl_osc(vt), xpl_osc(vt),ypl_osc(vt)
+        write(*,'(A5,F14.7,F14.7)'), peak, xpl_osc_configavg(vt,1),ypl_osc_configavg(vt,1)
     end do
 
 end subroutine
@@ -1278,31 +1407,55 @@ end subroutine
 subroutine calc_pl_spec()
     use variables
     implicit none
-    integer :: spec_point, vt
+    integer :: spec_point, vt, j
     real(wp) :: spectrum_start, spectrum_end, energy
     real(wp) :: lineshape, sum_w,sum_wx, sum_wy
-    real(wp) :: exciton_energy
-    allocate(pl_spec(spec_steps))
+    real(wp) :: exciton_energy, boltzfactor, boltzsum
+    real(wp), allocatable :: occupation_factors(:)
     allocate(pl_specx(spec_steps))
     allocate(pl_specy(spec_steps))
-    pl_spec = 0.0_wp
+    allocate(occupation_factors(general_counter))
     pl_specx = 0.0_wp
     pl_specy = 0.0_wp
     spectrum_start = 0.0_wp
-    spectrum_end = w00+10.0_wp*lw
-    exciton_energy = EVAL(1)   
-    do spec_point=1,spec_steps
+    spectrum_end = w00+20.0_wp*lw
+    boltzsum = 0.0_wp
+    if (temp .eq. 0.0_wp) then
+        go to 967
+    end if
+    do j=1,general_counter
+        exciton_energy = EVAL(j)
+        boltzfactor = dexp((-1.0_wp*(exciton_energy-EVAL(1)))/(kB*temp))
+        boltzsum = boltzsum + boltzfactor
+        occupation_factors(j) = boltzfactor
+    end do
+    occupation_factors = occupation_factors/boltzsum
+    967 do spec_point=1,spec_steps
         energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
         sum_w = 0.0_wp
         sum_wx = 0.0_wp
         sum_wy = 0.0_wp
         do vt=0,max_vibs
-            lineshape = dexp(-(energy - exciton_energy + (vt*1.0_wp))**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
-            sum_w = sum_w + lineshape*pl_osc((vt+1))*((exciton_energy-(vt*1.0_wp))**3)
-            sum_wx = sum_wx + lineshape*xpl_osc((vt+1))*((exciton_energy-(vt*1.0_wp))**3)
-            sum_wy = sum_wy + lineshape*ypl_osc((vt+1))*((exciton_energy-(vt*1.0_wp))**3)
+            boltzsum = 0.0_wp
+            do j=1, general_counter
+                exciton_energy = EVAL(j)
+                if (temp .ne. 0.0_wp) then
+                    if (occupation_factors(j) < 0.0001) cycle
+                    lineshape = dexp(-(energy - exciton_energy + (vt*1.0_wp))**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
+                    sum_wx = sum_wx + lineshape*xpl_osc_configavg((vt+1),j)*((exciton_energy-(vt*1.0_wp))**3)*occupation_factors(j)
+                    sum_wy = sum_wy + lineshape*ypl_osc_configavg((vt+1),j)*((exciton_energy-(vt*1.0_wp))**3)*occupation_factors(j)
+                else 
+                    if (j .ne. 1) cycle
+                    lineshape = dexp(-(energy - exciton_energy + (vt*1.0_wp))**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
+                    sum_wx = sum_wx + lineshape*xpl_osc_configavg((vt+1),j)*((exciton_energy-(vt*1.0_wp))**3)
+                    sum_wy = sum_wy + lineshape*ypl_osc_configavg((vt+1),j)*((exciton_energy-(vt*1.0_wp))**3)
+                end if
+
+            end do
+            ! write(*,*) 'BOLTZMANN SUM', boltzsum, vt
+            ! sum_wx = sum_wx*(1/boltzsum)
+            ! sum_wy = sum_wy*(1/boltzsum)
         end do
-        pl_spec(spec_point) = sum_w
         pl_specx(spec_point) = sum_wx
         pl_specy(spec_point) = sum_wy
     end do
@@ -1318,19 +1471,19 @@ subroutine write_pl()
     write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_pl.csv')
     eval_out_f = trim(eval_out_f)
     write(*,('(a,a)')) 'Writing PL to ',eval_out_f
-    101 format(*(F14.7, :, ","))
-    spectrum_start = 0.0_wp   
-    spectrum_end = spectrum_start + w00+10.0_wp*lw
+    101 format(*(F20.13, :, ","))
+    spectrum_start = 0.0_wp
+    spectrum_end = w00+20.0_wp*lw
     open(unit=668, file=eval_out_f, action='write')
-    102 format(*(A14, :, ","))
+    102 format(*(A20, :, ","))
     write(668,*) trim(INPUT_NAME)
     write(668,*) 'ENERGY OF EMITTING EXCITON',EVAL(1)*hw
     write(668,*) 'hw',hw
     write(668,*) 'MAX_VIBS',max_vibs
-    write(668,102) 'Energy','PL','PLX','PLY'
+    write(668,102) 'Energy','PLX','PLY'
     do spec_point=1,spec_steps
         energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
-        write( 668, 101 ) energy*hw ,pl_spec(spec_point), pl_specx(spec_point),pl_specy(spec_point)
+        write( 668, 101 ) energy*hw, pl_specx(spec_point),pl_specy(spec_point)
     end do
     close(668)
 end subroutine
@@ -1343,7 +1496,7 @@ subroutine cpl()
     integer i_x, i_y, i_z, n, vib ! indices for vibronic excitations
     integer i_x2,i_y2,i_z2,m,vib2, n1 ! indices for ground state vibrational excitation (for two particle states)
     integer i_x3,i_y3,i_z3,n2,vib3 ! indices for third iteration
-    integer :: h_i
+    integer :: h_i, j
     real(wp),dimension(3) :: mu_n, mu_m ! dipole moment vectors for m and n 
     real(wp),dimension(3) :: r_m, r_n, rdiff ! position vectors for m and n, and between them
     real(wp) :: c_nv, c_mv
@@ -1393,6 +1546,7 @@ subroutine cpl()
     end do
     R_00 = R_00*(k)/(mu_0**2)
     write(*,*) 'R_00', R_00
+    rot_strengths(1) = R_00
     R_01 = 0.0_wp
     do i_x=1,lattice_dimx
         do i_y=1,lattice_dimy
@@ -1418,6 +1572,7 @@ subroutine cpl()
                                     h_i = one_particle_index_arr( n, vib )
                                     c_nv = H(h_i,1)
                                     h_i = two_particle_index_arr( m, vib2 ,n,1)
+                                    if (h_i .eq. empty) cycle
                                     c_nvmv = H(h_i,1)
                                     R_01 = R_01 + fc_ground_to_neutral(vib,1)*fc_ground_to_neutral(0,vib2)*c_nv*c_nvmv*dot_product(crossproduct,rdiff)
                                 end do
@@ -1455,8 +1610,10 @@ subroutine cpl()
                                         do vib2=0,max_vibs
                                             do vib3=0,max_vibs
                                                 h_i = two_particle_index_arr(n1,vib2,n,1)
+                                                if (h_i .eq. empty) cycle
                                                 c_nv = H(h_i,1)
                                                 h_i = two_particle_index_arr(n2,vib3,n,1)
+                                                if (h_i .eq. empty) cycle
                                                 c_nvmv = H(h_i,1)
                                                 R_01 = R_01 + fc_ground_to_neutral(vib2,0)*fc_ground_to_neutral(vib3,0)*c_nv*c_nvmv*dot_product(crossproduct,rdiff)
                                             end do
@@ -1473,7 +1630,222 @@ subroutine cpl()
     R_01 = R_01*(k)/(mu_0**2)
 
     write(*,*) 'R_01', R_01
+    rot_strengths(2) = R_01
+
+
+    ! Add 0-2,0-3,0-4 peaks
+
+    ! do j=1,2
+    !     (1/(mu_0**2))*(xpl_osc(j,1) + ypl_osc(j,1))*rot_strengths(j) ! pl osc strength
+    ! end do
 
 end subroutine
+
+subroutine calc_cpl_spec()
+    use variables
+    implicit none
+    integer :: spec_point, vt, j
+    real(wp) :: spectrum_start, spectrum_end, energy
+    real(wp) :: lineshape, sum_I, sum_R
+    real(wp) :: exciton_energy, boltzfactor, boltzsum
+    real,dimension(spec_steps) :: smI, smR
+    allocate(cpl_spec(spec_steps))
+    cpl_spec = 0.0_wp
+    spectrum_start = 0.0_wp
+    spectrum_end = w00+20.0_wp*lw
+    exciton_energy = EVAL(1)
+
+    do spec_point=1,spec_steps
+        energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
+        sum_I = 0.0_wp
+        sum_R = 0.0_wp
+        do vt=0,1
+            ! (1/(mu_0**2))*(xpl_osc(j,1) + ypl_osc(j,1))
+            lineshape = dexp(-(energy - exciton_energy + (vt*1.0_wp))**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
+            sum_I = sum_I + (lineshape*(xpl_osc((vt+1),1)+ypl_osc((vt+1),1))*((exciton_energy-(vt*1.0_wp))**3))*(1/(mu_0**2))
+            sum_R = sum_R + (lineshape*(rot_strengths((vt+1)))*((exciton_energy-(vt*1.0_wp))**3))
+        end do
+        smR(spec_point) = sum_R
+        smI(spec_point) = sum_I
+        if (sum_I .eq. 0.0_wp) then
+            cpl_spec(spec_point) = 0.0_wp
+        else
+            cpl_spec(spec_point) = sum_R/sum_I
+        end if
+    end do
+    write(34,*) smI
+    write(56,*) smR
+
+end subroutine
+
+subroutine write_cpl()
+    use variables
+    implicit none
+    integer :: spec_point
+    real(wp) :: spectrum_start, spectrum_end, energy
+    write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_cpl.csv')
+    eval_out_f = trim(eval_out_f)
+    write(*,('(a,a)')) 'Writing CPL to ',eval_out_f
+    105 format(*(F20.13, :, ","))
+    spectrum_start = 0.0_wp
+    spectrum_end = w00+20.0_wp*lw
+    open(unit=670, file=eval_out_f, action='write')
+    106 format(*(A20, :, ","))
+    write(670,*) trim(INPUT_NAME)
+    write(670,*) 'ENERGY OF EMITTING EXCITON',EVAL(1)*hw
+    write(670,*) 'hw',hw
+    write(670,*) 'MAX_VIBS',max_vibs
+    write(670,106) 'Energy','GLUM'
+    do spec_point=1,spec_steps
+        energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
+        write( 670, 105 ) energy*hw, cpl_spec(spec_point)
+    end do
+    close(670)
+end subroutine
+
+subroutine cd()
+    use variables
+    implicit none
+    ! integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
+    integer nx,ny,nz,n,mx,my,mz,m
+    integer j
+    integer :: h_i
+    real(wp) :: c_nv
+    real(wp), dimension(3) :: mu_m, mu_n
+    real(wp), dimension(3) :: crossproduct    
+
+    do j=1,general_counter
+        do nx=1,lattice_dimx
+            do ny=1,lattice_dimy
+                do nz=1,lattice_dimz
+                    n = lattice_index_arr(nx,ny,nz)
+                    mu_n = mu_xyz(n,:)
+                    do mx=1,lattice_dimx
+                        do my=1,lattice_dimy
+                            do mz=1,lattice_dimy
+                                m = lattice_index_arr(mx,my,mz)
+                                mu_m = mu_xyz(m,:)
+                                crossproduct = cross(mu_n,mu_m)
+
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+        end do
+    end do
+
+end subroutine
+
+
+
+! Select vector delta from probability distribution P of possible sets of offsets.
+! delta has an entry for each chromophore site in the lattice.
+! P(delta) = 1/((2pi)^(N/2)*sqrt(detA)) *exp(-Sum(1/2*A^-1_nm*delta_n*delta_m))
+! Entries in A are given by sigma^2/2*exp(-(n-m)/l0) <- this accounts for spatial correlation. We can introduce 3d spatial correlation by replacing
+! |n-m| with r_mag/l0 with l0 no longer dimensionless.
+! First step; populate A
+! Second step; cholesky decomposition to get a matrix B such that BB^T=A
+! Third step; generate a vector of random (normally distributed) numbers Z
+! Fourth step; delta = mu + B*Z, where mu is the mean vector of the prob distribution.
+! Computational effort can be saved by only doing the first two steps once, rather than once per configuration.
+subroutine construct_covariance_matrix()
+    use variables
+    implicit none
+    integer :: nx,ny,nz,mx,my,mz, nxyz, mxyz
+    integer :: lx,ly,lz
+    real(wp) :: dx,dy,dz,argc
+
+    allocate(A_covar(lattice_count,lattice_count))
+    do nx = 1, lattice_dimx
+        do ny = 1, lattice_dimy
+            do nz = 1, lattice_dimz
+                nxyz = lattice_index_arr(nx, ny, nz)
+                do mx=1,lattice_dimx
+                    do my=1,lattice_dimy
+                        do mz=1,lattice_dimz
+                            mxyz = lattice_index_arr(mx, my, mz)
+                            lx = (nx-mx)
+                            ly = (ny-my)
+                            lz = (nz-mz)
+                            dx = (lx*1.0_wp)*x_spacing
+                            dy = (ly*1.0_wp)*y_spacing
+                            dz = (lz*1.0_wp)*z_spacing
+                            if (ANY(l0 .eq. 0.0_wp)) then
+                                ! write(*,*) '0 l0'
+                                argc = 0.0_wp
+                                if (nxyz .eq. mxyz) then
+                                    A_covar(nxyz,mxyz) = 1.0_wp
+                                else 
+                                    A_covar(nxyz,mxyz) = 0.0_wp
+                                end if
+                            else
+                                argc = dsqrt((dx/l0(1))**2 + (dy/l0(2))**2 + (dz/l0(3))**2)
+                                A_covar(nxyz,mxyz) = ((sigma**2)/2)*dexp(-1.0_wp*argc)
+                            end if
+                        end do
+                    end do
+                end do
+            end do 
+        end do
+    end do
+end subroutine
+
+subroutine cholesky_decomp(ACOV,N)
+    use variables
+    implicit none
+    external :: DPOTRF ! lapack routine to calculate the cholesky decomp of a positive semi-definite matrix
+    external :: DPSTRF
+    character*1 :: UPLO
+    integer :: INFO
+    integer :: LDA
+    integer, intent(in) :: N
+    real(wp), intent(inout) :: ACOV(n,n)
+    real(wp) :: CHOLESK_START, CHOLESK_END
+
+    UPLO = 'L'
+    LDA = N
+    call cpu_time(CHOLESK_START)
+    call DPOTRF(UPLO,N,ACOV,LDA,INFO)
+    call cpu_time(CHOLESK_END)
+    print*, ' CHOLESKY decomp done in',(CHOLESK_END-CHOLESK_START),'seconds'
+    if (INFO .ne. 0) then
+        if (INFO > 0) then
+            write(*,*) 'Matrix not positive definite, implement positive semi-definite'
+        end if
+    end if
+
+
+end subroutine
+
+subroutine draw_multivar_distr(N_samples,MU,SIGMA,A_FAC)
+    use, intrinsic :: iso_fortran_env, only: wp => real64, int64
+    use random_normal_distr, only: box_muller_vec
+    implicit none
+    external DGEMV
+    real(wp) :: SIGMA
+    integer(wp),intent(in) :: N_samples
+    real(wp), allocatable :: DELTA(:)
+    real(wp), intent(inout) :: MU(N_samples)! array of means (these will most often be the same (0) in my program)
+    real(wp), intent(in) :: A_FAC(N_samples,N_samples)
+    character*1 :: TRANS
+    integer :: N,M,LDA,INCX,INCY
+    real(wp) :: ALPHA,BETA
+    allocate(DELTA(N_samples))
+    ! write(*,*) MU(1)
+    DELTA = box_muller_vec(N_samples,MU(1),SIGMA) ! this line assumes all means are the same. This is designed to work with this distribution but should be changed if using for general multivariate normal.
+    ! write(*,*) DELTA
+    TRANS='N'
+    M=N_samples
+    N=N_samples
+    LDA=N_samples
+    INCX=1
+    INCY=1
+    ALPHA=1.0_wp
+    BETA=1.0_wp
+    call DGEMV(TRANS,M,N,ALPHA,A_FAC,LDA,DELTA,INCX,BETA,MU,INCY)
+    deallocate(DELTA)
+end subroutine
+
 
 
