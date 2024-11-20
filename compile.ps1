@@ -1,1 +1,1 @@
-ifx -Qmkl  -Qopenmp variables.f90 random_normal_distr.f90 chiralpl.f90 /traceback /check:all
+ifx -Qmkl  -Qopenmp variables.f90 random_normal_distr.f90 index.f90 franckcondon.f90 hamiltonian.f90 disorder.f90 spectra.f90 chiralpl.f90 /traceback /check:all
