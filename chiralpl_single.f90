@@ -228,7 +228,6 @@ program chiralpl
         write(*,*) 'Skipping saving Hamiltonian' 
     end if 
     call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
-
     ! Save eigenvalue logic
     if (save_evals .eq. .true.) then
         write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_EVALS.csv')

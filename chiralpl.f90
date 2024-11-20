@@ -6,175 +6,16 @@
 ! The Hamiltonian is first constructed, then projected into its eigenbasis.
 ! Properties are then calculated from the eigenstates and vectors.
 ! Hartree units are used throughout.
-module variables
-    use, intrinsic :: iso_fortran_env, only: wp => real64, int64
-    
-    !Constants
-    real(wp), parameter :: eV = 8065.0_wp !1 eV = 8065cm^-1
-    real(wp), parameter :: pi = 4.d0*datan(1.d0) ! good way of getting pi to highest machine precision available
-    real(wp), parameter :: epsilon = 1.0_wp 
-    real(wp), parameter :: Debye = 2.541765_wp ! Debye per dipole in AU
-    real(wp), parameter :: c = 137.035999177 ! 1/alpha in Hartree atomic units
-    real(wp), parameter :: kB = 0.6956925_wp ! boltzmann constant Eh/K
-    ! INPUTS TO ENSURE A DEFAULT
-    character*256 :: INPUT_NAME
-    integer:: lattice_dimx = 1
-    integer:: lattice_dimy = 1
-    integer:: lattice_dimz = 1
-    integer:: configs = 1
-    logical :: bool_one_particle_states = .true.
-    logical :: bool_two_particle_states = .true.
-    logical :: H_out = .false.
-    logical :: save_evals = .false.
-    logical :: save_evecs = .false.
-    logical :: manual_coupling = .true. ! if true, then doesn't calculate JCouplings individually, just uses inputs JCoulx,JCouly,JCoulz
-    integer :: max_vibs
-    integer :: n_nearest_neighbour = 1
-    real(wp) :: lambda_neutral  = 1.0_wp
-    real(wp) :: w00 = 14000.0_wp
-    real(wp) :: hw = 1400.0_wp
-    real(wp) :: mu_0 = 1.0_wp*Debye
-    real(wp) :: temp = 0.0000001_wp
-    real(wp) :: JCoulx = -0.2_wp
-    real(wp) :: JCouly = -0.15_wp
-    real(wp) :: JCoulz = 0.5_wp
-    real(wp) :: te_x = 700.0_wp
-    real(wp) :: te_y = 700.0_wp    
-    real(wp) :: th_x = 700.0_wp
-    real(wp) :: th_y = 700.0_wp  
-    real(wp) :: lw  = 250.0_wp
-    real(wp) :: phi = 0.0_wp ! twist angle for chiral aggregates
-    real(wp) :: x_spacing = 1.0_wp
-    real(wp) :: y_spacing = 1.0_wp
-    real(wp) :: z_spacing = 1.0_wp ! in case stacking is further spaced than spacing along polymer
-    real(wp) :: k = 1.0_wp ! k=w00/c
-    real(wp) :: sigma=1
-    real(wp),dimension(3) :: l0 = 0.0_wp
-    ! disorder
-    real(wp),allocatable :: A_covar(:,:)
-    real(wp),allocatable :: diagonal_disorder_offsets(:)
-    ! state counters
-    integer :: general_counter = 0
-    integer :: lattice_count = 0
-    integer :: one_particle_counter = 0
-    integer :: two_particle_counter = 0
-
-
-    ! index arrays
-    integer, allocatable :: lattice_index_arr(:,:,:)
-    integer, allocatable :: one_particle_index_arr(:,:)
-    integer, allocatable :: two_particle_index_arr(:,:,:,:)
-
-    ! franck-condon table
-    real(wp), allocatable :: fc_ground_to_neutral(:,:)
-
-    ! array of dipole moment vectors
-    real(wp), allocatable :: mu_xyz(:,:)
-
-    ! hamiltonian, H
-    ! The hamiltonian is a 2d array
-    real(wp), allocatable :: H(:,:)
-    real(wp), allocatable :: EVAL(:)
-    integer, parameter :: empty = -1
-
-    integer :: IU = 1
-    integer :: EVAL_COUNT
-
-
-    ! File out names
-    character*256 :: eval_out_f
-
-
-    ! For property calculations
-    complex(kind=wp), parameter :: complex_zero = ( 0_wp, 0_wp )
-    complex(kind=wp), allocatable:: abs_osc_strengths_x(:)
-    complex(kind=wp), allocatable:: abs_osc_strengths_y(:)
-    complex(kind=wp), allocatable:: abs_osc_strengths_x_configavg(:)
-    complex(kind=wp), allocatable:: abs_osc_strengths_y_configavg(:)
-    real(wp), allocatable :: xpl_osc(:,:)
-    real(wp), allocatable :: ypl_osc(:,:)
-    real(wp), allocatable :: xpl_osc_configavg(:,:)
-    real(wp), allocatable :: ypl_osc_configavg(:,:)  
-    integer, parameter  :: spec_steps = 2600
-    real(wp), allocatable :: pl_specx(:)
-    real(wp), allocatable :: pl_specy(:)
-    real(wp), allocatable :: abs_specx(:)
-    real(wp), allocatable :: abs_specy(:)   
-    real(wp), dimension(2) :: rot_strengths
-    real(wp), allocatable :: cpl_spec(:)
-
-    contains
-
-        function cross(a,b) result(crs)
-            implicit none
-            real(wp), dimension(3) :: crs
-            real(wp), intent(in),dimension(3) :: a,b
-            crs(1) = a(2)*b(3) - a(3)*b(2)
-            crs(2) = a(3)*b(1) - a(1)*b(3)
-            crs(3) = a(1)*b(2) - a(2)*b(1)
-            return
-        end function
-
-end module
-
-module random_normal_distr
-    use, intrinsic :: iso_fortran_env, only: wp => real64, int64
-    implicit none
-    private
-    public :: box_muller, box_muller_vec
-    contains
-        function box_muller() result(Z)
-            implicit none
-            integer(wp) i
-            real(wp) :: U(2)
-            real(wp) :: Z(2)
-            real(wp),parameter :: pi=4.0_wp*datan(1.0_wp)
-            ! while loop to exclude log(0)
-            do
-                call RANDOM_NUMBER(U)
-                if (U(1) > 0.0_wp) exit
-            end do
-            Z(1)=dsqrt(-2*log(U(1)))*cos(2.0_wp*pi*U(2))
-            Z(2)=dsqrt(-2*log(U(1)))*cos(2.0_wp*pi*U(2))
-        end function
-
-        function box_muller_vec(N,mu,sigma) result(Z)
-            implicit none
-            integer(wp), intent(in) :: N
-            real(wp), intent(in) :: mu, sigma
-            real(wp) :: D(2)
-            real(wp),allocatable :: Z(:)
-            integer(wp) :: i,j
-
-            allocate(Z(N))
-            do i=1,N/2 ! two random numbers are returned for each
-                j = 2*i-1
-                Z(j:j+1) = box_muller()
-            end do
-            ! if N odd, then last element will be empty
-            if (mod(N,2) .ne. 0) then
-                D = box_muller()
-                Z(N) = D(1)
-            end if
-            Z = Z*sigma
-            Z = Z + mu
-            end function
-end module
-
-
-
-
-
 program chiralpl
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     use variables
-    use omp_lib
+    use index
+    use disorder
     implicit none
-    integer :: j, o
+    integer(wp) :: j, o
     real(wp) :: estimated_RAM,begin_disorder_avgtime,end_disorder_avgtime
     character*8  :: date_now
     character*10 :: time_now
-    integer :: threads
     external :: dsyevr, dlamch
     !declare variables
 
@@ -230,11 +71,7 @@ program chiralpl
     allocate(ypl_osc_configavg(max_vibs+1,size(EVAL)))
     allocate(abs_osc_strengths_x_configavg(general_counter))
     allocate(abs_osc_strengths_y_configavg(general_counter))
-    threads = omp_get_num_threads()
-    print*, 'Running on',threads,'threads'
     call cpu_time(begin_disorder_avgtime)
-    !$OMP PARALLEL PRIVATE(abs_osc_strengths_x,abs_osc_strengths_y,xpl_osc,ypl_osc) SHARED(abs_osc_strengths_x_configavg,abs_osc_strengths_y_configavg,xpl_osc_configavg,ypl_osc_configavg)
-    !$OMP DO
     do o = 1, configs
         EVAL = 0.0_wp
         H = 0.0_wp
@@ -295,8 +132,6 @@ program chiralpl
         abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg + abs_osc_strengths_x
         abs_osc_strengths_y_configavg = abs_osc_strengths_y_configavg + abs_osc_strengths_y
     end do
-    !$OMP END DO
-    !$OMP END PARALLEL
     call cpu_time(end_disorder_avgtime)
     print*, 'Configurational average finished in',end_disorder_avgtime-begin_disorder_avgtime,'seconds'
     xpl_osc_configavg = xpl_osc_configavg/configs
@@ -331,9 +166,9 @@ subroutine readInput()
     use variables
     character*255 :: fname
     character*100 :: buffer, label
-    integer :: errstat
+    integer(wp) :: errstat
     logical :: exists
-    integer :: io_stat, file_no, line_no, pos_space
+    integer(wp) :: io_stat, file_no, line_no, pos_space
     parameter (file_no=87)
     call get_command_argument(1, fname, status=errstat )
     if (errstat .ne. 0) then
@@ -438,106 +273,12 @@ subroutine readInput()
     k = w00/c
 end subroutine
 
-
-
-subroutine LatticeIndex()
-    use variables
-    implicit none
-    integer :: i_x, i_y, i_z
-
-    ! Check if arr allocated, if not allocate as 3D array of size lattice_dimx,lattice_dimy,lattice_dimz
-    if ( .not. allocated( lattice_index_arr ) ) then 
-        allocate( lattice_index_arr( lattice_dimx, lattice_dimy, lattice_dimz) )
-    end if
-    lattice_index_arr = empty
-    ! Write chromophore indices to index_arr elements
-    do i_x=1,lattice_dimx
-        do i_y=1,lattice_dimy
-            do i_z=1,lattice_dimz
-                lattice_count = lattice_count + 1
-                lattice_index_arr( i_x, i_y, i_z ) = lattice_count
-            end do
-        end do
-    end do
-print*, '*****************************************'
-print*, lattice_count,'Lattice Sites'
-end subroutine
-
-
-subroutine oneParticleIndex()
-    use variables
-    implicit none
-    integer :: i_x, i_y, i_z, vib, indx_xyz
-    ! Check if arr allocated, if not then allocate as 2D array of size (no_sites_lattice, max_vibs+1)
-    if ( .not. allocated( one_particle_index_arr ) ) then 
-        allocate( one_particle_index_arr( lattice_count, 0:max_vibs) )
-    end if
-    one_particle_index_arr = empty
-    ! iterate over all sites in 3d lattice, each of which is a row in the matrix, with columns as vib state inds
-    do i_x = 1, lattice_dimx
-        do i_y = 1, lattice_dimy
-            do i_z = 1, lattice_dimz
-                do vib = 0, max_vibs
-                    general_counter = general_counter + 1
-                    indx_xyz = lattice_index_arr(i_x, i_y, i_z)
-                    one_particle_index_arr( indx_xyz, vib) = general_counter
-                    one_particle_counter = one_particle_counter + 1
-                end do
-            end do 
-        end do
-    end do
-    print*, one_particle_counter, 'One particle states'
-end subroutine
-
-subroutine twoParticleIndex()
-    use variables
-    ! index two-particle states; two particle states consist of a vibronic excitation on one site and a vibrational excitation on another
-    ! therefore each combination of site with vibronic exc and vibrational exc on other site need an index number
-    implicit none
-    integer i_x, i_y, i_z, i_xyz, vib ! indices for vibronic excitations
-    integer i_xv, i_yv, i_zv, i_xyzv, vibv ! indices for vibrational excitations
-
-
-    if (.not. allocated(two_particle_index_arr)) then
-        allocate( two_particle_index_arr(lattice_count, 0:max_vibs, lattice_count, 1:max_vibs))
-    
-    end if
-    two_particle_index_arr = empty
-    do i_x=1,lattice_dimx
-        do i_y=1,lattice_dimy
-            do i_z=1,lattice_dimz
-                do vib=0,max_vibs ! for each vibronic state, loop over all other lattice sites for vibrational excitations
-                    do i_xv=1,lattice_dimx
-                        do i_yv=1,lattice_dimy
-                            do i_zv=1,lattice_dimz
-                                do vibv=1,max_vibs ! excited vibrational states in ground electronic states cannot be v=0
-                                    i_xyz= lattice_index_arr(i_x,i_y,i_z)
-                                    i_xyzv=lattice_index_arr(i_xv,i_yv,i_zv)
-                                    if ( i_xyz == i_xyzv ) cycle ! no states with vibrational and vibronic exc on same site
-                                    if (vibv + vib > max_vibs) cycle 
-                                    general_counter = general_counter + 1
-                                    two_particle_counter = two_particle_counter + 1
-                                    two_particle_index_arr(i_xyz, vib, i_xyzv, vibv) = general_counter
-                                end do
-                            end do
-                        end do
-                    end do
-                end do
-            end do
-        end do
-    end do
-    print*, two_particle_counter, 'Two particle states'
-    print*, general_counter, 'Total basis states'
-    print*, '*****************************************'                 
-end subroutine
-
-
 subroutine calcFranckCondonTables()
     ! precalculates vibrational overlap integrals into table
     ! starting with just ground-state to frenkel exciton type <m|n> factors
     use variables
     implicit none
-    integer :: ground_vib, exc_vib
+    integer(wp) :: ground_vib, exc_vib
     real(wp) :: vibolap
     if (.not. allocated(fc_ground_to_neutral)) then
         allocate(fc_ground_to_neutral(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j. Zero-indexed
@@ -560,8 +301,8 @@ subroutine calcVibrationalOverlap(lambda_1,n,lambda_2,m,vibolap)
     use variables
     implicit none
     real(kind=wp), external :: factorial
-    integer , intent (in) :: n, m
-    integer :: j
+    integer(wp) , intent (in) :: n, m
+    integer(wp) :: j
     real(kind=wp), intent(in):: lambda_1, lambda_2
     real(kind=wp) ::  vibolap
     real(kind=wp) :: lambda_hr
@@ -583,7 +324,7 @@ function factorial(j) result(fac)
     ! calc factorial(j) via gamma(j+1) = j!
     use iso_fortran_env, only: wp => real64, int64
     implicit none
-    integer, intent(in) :: j
+    integer(wp), intent(in) :: j
     real(kind=wp) :: fac
     if (j < 0) then
         write(*,*)  '<ERROR> Factorial undefined for arg', j, '<=0'
@@ -604,302 +345,13 @@ end function factorial
 !     mu(2) = sin(z*phi)
 ! end function
 
-subroutine dipole_moment
-    use variables
-    implicit none
-    integer :: ix,iy,iz,ixyz
-    allocate(mu_xyz(lattice_count,3))
-    mu_xyz = 0.0_wp
-    do ix=1,lattice_dimx
-        do iy=1,lattice_dimy
-            do iz=1,lattice_dimz
-                ixyz = lattice_index_arr(ix,iy,iz)
-                mu_xyz(ixyz,1) = mu_0*cos((iz*1.0_wp)*phi) ! H-stack of dipoles
-                mu_xyz(ixyz,2) = mu_0*sin((iz*1.0_wp)*phi) ! H-stack of dipoles
-            end do
-        end do
-    end do
-end subroutine
-
-!pure
-pure real(wp) function coupling(x1,y1,z1,x2,y2,z2)
-    use variables
-    integer, intent(in) :: x1,y1,z1,x2,y2,z2
-    integer :: d_x, d_y, d_z, i_xyz1, i_xyz2
-    real(wp) :: dx,dy,dz
-    real(wp), dimension(3) :: R, R_norm
-    real(wp) :: R_mag
-    real(wp) :: CT_couple_alongchain
-    real(wp) :: dipole_dot_product
-    real(wp) :: mu1_dotR
-    real(wp) :: mu2_dotR
-    coupling  = 0.0_wp
-
-    d_x = abs(x2-x1)
-    d_y = abs(y2-y1)
-    d_z = abs(z2-z1)
-    if (manual_coupling .eq. .true.) then
-        go to 78
-    end if
-    CT_couple_alongchain = 0.0_wp
-    dipole_dot_product = 0.0_wp
-    mu1_dotR = 0.0_wp
-    mu2_dotR = 0.0_wp
-
-    if (x1 .eq. x2) then
-        if (z1 .eq. z2) then
-            if (y1 .eq. y2) then
-                return ! don't calc coupling if same lattice site
-            else
-                ! maybe add CT contribution to coupling
-                continue ! for now skip
-            end if 
-        end if
-    end if
-    ! Calculate coupling using point dipole approximation, Jc = (mu1.mu2 - 3(mu1.R_norm)(mu2.R_norm))/(4*pi*epsilon*R_mag)
-    dx = (d_x*1.0_wp)*x_spacing
-    dy = (d_y*1.0_wp)*y_spacing
-    dz = (d_z*1.0_wp)*z_spacing
-    R(1) = dx
-    R(2) = dy
-    R(3) = dz
-    R_mag = sqrt((dx**2)+(dy**2)+(dz**2))
-    R_norm = (1/R_mag)*R
-    i_xyz1 = lattice_index_arr(x1,y1,z1)
-    i_xyz2 = lattice_index_arr(x2,y2,z2)
-    dipole_dot_product = mu_xyz(i_xyz1,1)*mu_xyz(i_xyz2,1) + mu_xyz(i_xyz1,2)*mu_xyz(i_xyz2,2) + mu_xyz(i_xyz1,3)*mu_xyz(i_xyz2,3)
-    mu1_dotR = mu_xyz(i_xyz1,1)*R_norm(1) + mu_xyz(i_xyz1,2)*R_norm(2) + mu_xyz(i_xyz1,2)*R_norm(2)
-    mu2_dotR = mu_xyz(i_xyz2,1)*R_norm(1) + mu_xyz(i_xyz2,2)*R_norm(2) + mu_xyz(i_xyz2,2)*R_norm(2)
-    coupling = (1/(4*pi*epsilon*(R_mag**3)))*(dipole_dot_product-(3*mu1_dotR*mu2_dotR))
-    return
-    78 if (d_y .eq. 0 .and. d_z .eq. 0) then
-        if (d_x .eq. 1) then
-            coupling = JCoulx !+ te_x + th_x
-        end if
-        return
-
-    end if
-
-    if (d_x .eq. 0 .and. d_z .eq. 0) then
-        if (d_y .eq. 1) then
-            coupling = JCouly !+ te_x + th_x
-        end if
-        return
-    end if
-    if (d_x .eq. 0 .and. d_y .eq. 0) then
-        if (d_z .eq. 1) then
-            coupling = JCoulz !+ te_x + th_x
-        end if
-        return
-
-    end if
-    return
-
-end function
-
-subroutine build1particleHamiltonian()
-    use variables
-    implicit none
-    real(wp), external :: coupling
-    integer :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i ! x,y,z coords for vibronic exc on 1
-    integer :: i_x2, i_y2, i_z2, vib_i2, i_xyz2, h_j ! x,y,z coords for vibronic exc on 2
-    ! h_i and h_j are hamiltonian indices
-    do i_x1 = 1, lattice_dimx
-        do i_y1 = 1, lattice_dimy
-            do i_z1=1,lattice_dimz
-                do vib_i1=0,max_vibs
-                    i_xyz1 = lattice_index_arr( i_x1, i_y1, i_z1 )
-                    h_i = one_particle_index_arr( i_xyz1, vib_i1 )
-                    if ( h_i == empty ) cycle
-                    H(h_i, h_i) = vib_i1*1.0_wp + w00 + diagonal_disorder_offsets(i_xyz1)
-                    do i_x2=1, lattice_dimx
-                        do i_y2=1, lattice_dimy
-                            do i_z2=1, lattice_dimz
-                                do vib_i2 = 0, max_vibs
-                                    i_xyz2 = lattice_index_arr(i_x2, i_y2, i_z2)
-                                    h_j = one_particle_index_arr(i_xyz2, vib_i2)
-                                    if ( h_j == empty ) cycle
-                                    if (h_j .eq. h_i) cycle
-                                    H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
-                                    H(h_j, h_i) = H(h_i, h_j)
-                                end do
-                            end do
-                        end do
-                    end do
-                end do
-            end do
-        end do
-    end do
-
-end subroutine
-
-subroutine build2particleHamiltonian()
-    use variables
-    implicit none
-    real(wp), external :: coupling
-    integer :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i
-    integer :: i_x1v, i_y1v, i_z1v, vib_i1v, i_xyz1v ! indices for vibrationally only excited site
-    integer :: i_x2, i_y2, i_z2, vib_i2, i_xyz2, h_j
-    integer :: i_xyz2v, vib_i2v
-    do i_x1 = 1, lattice_dimx
-        do i_y1 = 1, lattice_dimy
-            do i_z1=1,lattice_dimz
-                do vib_i1=0,max_vibs
-                    i_xyz1 = lattice_index_arr(i_x1,i_y1,i_z1)
-                    do i_x1v=1, lattice_dimx
-                        do i_y1v=1, lattice_dimy
-                            do i_z1v=1, lattice_dimz
-                                do vib_i1v=1, max_vibs
-                                    i_xyz1v = lattice_index_arr(i_x1v,i_y1v,i_z1v)
-                                    h_i = two_particle_index_arr(i_xyz1,vib_i1, i_xyz1v, vib_i1v)
-                                    if (h_i .eq. empty) cycle
-                                    H(h_i,h_i) = (vib_i1+vib_i1v)*1.0_wp + w00
-                                    do i_x2=1,lattice_dimx
-                                        do i_y2=1,lattice_dimy
-                                            do i_z2=1,lattice_dimz
-                                                i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
-                                                do vib_i2=0,max_vibs
-                                                    i_xyz2v = i_xyz1v
-                                                    vib_i2v = vib_i1v
-                                                    h_j = two_particle_index_arr(i_xyz2, vib_i2, i_xyz2v, vib_i2v )
-                                                    if (h_j .eq. empty .or. h_j .eq. h_i) then
-                                                        continue
-                                                    else
-                                                        H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)* &
-                                                        fc_ground_to_neutral(0, vib_i1)*fc_ground_to_neutral(0,vib_i2)
-                                                        H(h_j,h_i) = H(h_i,h_j)
-                                                    end if
-                                                    if (i_xyz1v .eq. i_xyz2) then ! if vibrat exc in state 1 at same place as vibronic on state 2 then exchange type 
-                                                        i_xyz2v = i_xyz1
-                                                        do vib_i2v=1, max_vibs
-                                                            h_j = two_particle_index_arr(i_xyz2, vib_i2, i_xyz2v, vib_i2v)
-                                                            if ( h_j .eq. empty .or. h_j .eq. h_i ) cycle
-                                                            H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(vib_i2v, vib_i1)*fc_ground_to_neutral(vib_i1v,vib_i2)
-                                                            H(h_j, h_i) = H(h_i, h_j)
-                                                        end do
-                                                    end if
-                                                end do
-                                            end do
-                                        end do
-                                    end do
-                                end do
-                            end do
-                        end do
-                    end do
-                end do
-            end do
-        end do
-    end do
-end subroutine
-
-
-subroutine build1particle2particleHamiltonian()
-    use variables
-    implicit none
-    real(wp), external :: coupling
-    integer i_x1, i_y1, i_z1, i_xyz1, vib_i1, h_i ! coords of the vibronic exc in 1 in the one particle state
-    integer i_x2, i_y2, i_z2, i_xyz2, vib_i2, h_j ! coords of the vibronic (electronic+vib) excitation in 2 in the two particle state
-    integer i_x2v, i_y2v, i_z2v, i_xyz2v, vib_i2v ! coords of the pure vibrational excitation in 2 in the two particle state
-    do i_x1=1,lattice_dimx
-        do i_y1=1,lattice_dimy
-            do i_z1=1,lattice_dimz
-                do vib_i1=0,max_vibs
-                    i_xyz1 = lattice_index_arr(i_x1,i_y1,i_z1) !get lattice index of state 1 1-particle exc
-                    h_i = one_particle_index_arr(i_xyz1, vib_i1)
-                    if (h_i .eq. empty) cycle
-                    do i_x2=1,lattice_dimx
-                        do i_y2=1,lattice_dimy
-                            do i_z2=1,lattice_dimz
-                                do vib_i2=0,max_vibs
-                                    i_xyz2 = lattice_index_arr(i_x2,i_y2,i_z2)
-                                    ! all matrix elements are zero except those where the pure vibrational excitation in 2 is in the same site as electronic in 1
-                                    i_x2v = i_x1 
-                                    i_y2v = i_y1
-                                    i_z2v = i_z1
-                                    i_xyz2v = lattice_index_arr( i_x2v, i_y2v, i_z2v )
-                                    do vib_i2v=1,max_vibs
-                                        h_j = two_particle_index_arr(i_xyz2,vib_i2,i_xyz2v,vib_i2v)
-                                        if (h_j .eq. empty) cycle
-                                        H(h_i,h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
-                                        H(h_j,h_i) = H(h_i,h_j)
-                                    end do
-                                end do
-                            end do
-                        end do
-                    end do
-                end do
-            end do
-        end do
-    end do
-end subroutine
-
-
-subroutine Diagonalize(A,RANGE,N,W,M,I_U)
-    use variables
-    implicit none
-    character*1, intent(in) :: RANGE ! RANGE is which eigenvalues are calculated, RANGE='A' is all, 'V' and 'I' allow selection
-    integer, intent(in) :: N,I_U !N is the order of the matrix, IU controls largest eigenvalue returned if RANGE='I'. IU not ref'd if RANGE='V' or 'A'
-    real(wp), intent(inout) :: A(n,n) ! A is the Hamiltonian matrix, on exit it is assigned to the eigenvecs
-    real(wp), intent(out) :: W(n) ! Array of eigenvalues in ascending order
-    integer, intent(out)  :: M ! number of eigenvalues found.
-    character*1 :: JOBV, UPLO ! JOBV controls whether eigenvecs and vals are calc'd (='V'), or just eigenvals (='N'). UPLO controls whether on exit from DSYEVR A stores upper or lower triangular matrix
-    parameter  (JOBV='V', UPLO='U')
-
-    integer :: LDA ! array leading dimension
-    real(wp) :: VL = -3.0_wp ! lower and upper of interval to search for eigenvalues if RANGE='V'. Not accessed
-    real(wp) :: VU = 20.0_wp
-    integer :: IL = 1 ! lower bound of IL->IU if only selected eigenvals requested.
-    real(wp) :: ABSTOL ! absolute error tolerance for eigenvals, 
-
-    real(wp), external :: dlamchm ! utility func to determine machine parameters for minimum error tolerance without overflow
-    real(wp), allocatable  :: Z(:,:) ! eigenvectors of A in columns
-    integer :: LDZ ! leading dimension of z
-    integer :: ISUPPZ(2*max(1,N))
-    real(wp), allocatable :: WORK(:)
-    real(wp) :: WORK_DIM(1)
-    integer :: LWORK
-    integer, allocatable :: IWORK(:)
-    integer :: IWORK_DIM(1)
-    integer :: LIWORK
-    integer :: INFO
-    real(wp) :: DIAG_START, DIAG_END
-    real(wp), external :: dlamch
-    external :: dsyevr
-
-
-
-    ABSTOL = dlamch('Safe minimum')
-    LDA=N
-    LDZ=N
-    allocate( Z( N, N ) )
-    ! First, query workspace with LWORK and LIWORK set to -1. This calcs the optimal size of the WORK and IWORK arrays
-    LWORK = -1
-    LIWORK = -1
-    call dsyevr(JOBV,RANGE,UPLO,N,A,LDA,VL,VU,IL,I_U,ABSTOL,M,W,Z,LDZ,ISUPPZ,WORK_DIM,LWORK,IWORK_DIM,LIWORK,INFO)
-    LWORK = WORK_DIM(1)
-    LIWORK = IWORK_DIM(1)
-    ! allocate WORK and IWORK arrays
-    allocate(WORK(LWORK))
-    allocate(IWORK(LIWORK))
-    ! print*, ' Begin Hamiltonian diagonalization'
-    ! print*, '*****************************************'
-    call cpu_time(DIAG_START)
-    call dsyevr(JOBV,RANGE,UPLO,N,A,LDA,VL,VU,IL,I_U,ABSTOL,M,W,Z,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
-    call cpu_time(DIAG_END)
-    ! print*, '        Done'
-    ! print*, M, 'eigenvalues found'
-    ! print*, ' Diagonalization done in',(DIAG_END-DIAG_START),'seconds'
-    ! print*, '*****************************************'
-    A(:,1:M) = Z(:,1:M) ! Assign A to Z, (less of Z if M != N)
-    deallocate( Z, WORK, IWORK )
-end subroutine
 
 subroutine absorption()
     use variables
     implicit none
-    integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
-    integer j
-    integer :: h_i
+    integer(wp) i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
+    integer(wp) j
+    integer(wp) :: h_i
     real(wp) :: c_nv
 
     abs_osc_strengths_x = complex_zero
@@ -928,7 +380,7 @@ end subroutine
 subroutine calc_abs_spec()
     use variables
     implicit none
-    integer :: spec_point, j
+    integer(wp) :: spec_point, j
     real(wp) :: energy, eigenstate_energy
     real(wp) :: lineshape,sum_wx, sum_wy,step
     allocate(abs_specx(spec_steps))
@@ -959,7 +411,7 @@ end subroutine
 subroutine write_abs()
     use variables
     implicit none
-    integer :: spec_point
+    integer(wp) :: spec_point
     real(wp) :: step, energy
 
     write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_abs.csv')
@@ -986,9 +438,9 @@ end subroutine
 subroutine pl()
     use variables
     implicit none
-    integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
-    integer i_x2,i_y2,i_z2,i_xyz2,vib2 ! indices for ground state vibrational excitation (for two particle states)
-    integer :: h_i, j
+    integer(wp) i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
+    integer(wp) i_x2,i_y2,i_z2,i_xyz2,vib2 ! indices for ground state vibrational excitation (for two particle states)
+    integer(wp) :: h_i, j
     real(wp) :: c_nv
     real(wp) :: c_nvmv, c_mvnv
     complex(kind=wp) :: I_from_n, I_twoparticle
@@ -1388,7 +840,7 @@ end subroutine
 subroutine pl_output()
     use variables
     implicit none
-    integer :: vt
+    integer(wp) :: vt
     character*256 :: peak
     print*, '*****************************************'
     print*, '         PL Oscillator Strengths'
@@ -1407,7 +859,7 @@ end subroutine
 subroutine calc_pl_spec()
     use variables
     implicit none
-    integer :: spec_point, vt, j
+    integer(wp) :: spec_point, vt, j
     real(wp) :: spectrum_start, spectrum_end, energy
     real(wp) :: lineshape, sum_w,sum_wx, sum_wy
     real(wp) :: exciton_energy, boltzfactor, boltzsum
@@ -1466,7 +918,7 @@ end subroutine
 subroutine write_pl()
     use variables
     implicit none
-    integer :: spec_point
+    integer(wp) :: spec_point
     real(wp) :: spectrum_start, spectrum_end, energy
     write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_pl.csv')
     eval_out_f = trim(eval_out_f)
@@ -1493,10 +945,10 @@ end subroutine
 subroutine cpl()
     use variables
     implicit none
-    integer i_x, i_y, i_z, n, vib ! indices for vibronic excitations
-    integer i_x2,i_y2,i_z2,m,vib2, n1 ! indices for ground state vibrational excitation (for two particle states)
-    integer i_x3,i_y3,i_z3,n2,vib3 ! indices for third iteration
-    integer :: h_i, j
+    integer(wp) i_x, i_y, i_z, n, vib ! indices for vibronic excitations
+    integer(wp) i_x2,i_y2,i_z2,m,vib2, n1 ! indices for ground state vibrational excitation (for two particle states)
+    integer(wp) i_x3,i_y3,i_z3,n2,vib3 ! indices for third iteration
+    integer(wp) :: h_i, j
     real(wp),dimension(3) :: mu_n, mu_m ! dipole moment vectors for m and n 
     real(wp),dimension(3) :: r_m, r_n, rdiff ! position vectors for m and n, and between them
     real(wp) :: c_nv, c_mv
@@ -1644,7 +1096,7 @@ end subroutine
 subroutine calc_cpl_spec()
     use variables
     implicit none
-    integer :: spec_point, vt, j
+    integer(wp) :: spec_point, vt, j
     real(wp) :: spectrum_start, spectrum_end, energy
     real(wp) :: lineshape, sum_I, sum_R
     real(wp) :: exciton_energy, boltzfactor, boltzsum
@@ -1681,7 +1133,7 @@ end subroutine
 subroutine write_cpl()
     use variables
     implicit none
-    integer :: spec_point
+    integer(wp) :: spec_point
     real(wp) :: spectrum_start, spectrum_end, energy
     write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_cpl.csv')
     eval_out_f = trim(eval_out_f)
@@ -1707,9 +1159,9 @@ subroutine cd()
     use variables
     implicit none
     ! integer i_x, i_y, i_z,i_xyz, n, vib ! indices for vibronic excitations
-    integer nx,ny,nz,n,mx,my,mz,m
-    integer j
-    integer :: h_i
+    integer(wp) nx,ny,nz,n,mx,my,mz,m
+    integer(wp) j
+    integer(wp) :: h_i
     real(wp) :: c_nv
     real(wp), dimension(3) :: mu_m, mu_n
     real(wp), dimension(3) :: crossproduct    
@@ -1735,116 +1187,6 @@ subroutine cd()
         end do
     end do
 
-end subroutine
-
-
-
-! Select vector delta from probability distribution P of possible sets of offsets.
-! delta has an entry for each chromophore site in the lattice.
-! P(delta) = 1/((2pi)^(N/2)*sqrt(detA)) *exp(-Sum(1/2*A^-1_nm*delta_n*delta_m))
-! Entries in A are given by sigma^2/2*exp(-(n-m)/l0) <- this accounts for spatial correlation. We can introduce 3d spatial correlation by replacing
-! |n-m| with r_mag/l0 with l0 no longer dimensionless.
-! First step; populate A
-! Second step; cholesky decomposition to get a matrix B such that BB^T=A
-! Third step; generate a vector of random (normally distributed) numbers Z
-! Fourth step; delta = mu + B*Z, where mu is the mean vector of the prob distribution.
-! Computational effort can be saved by only doing the first two steps once, rather than once per configuration.
-subroutine construct_covariance_matrix()
-    use variables
-    implicit none
-    integer :: nx,ny,nz,mx,my,mz, nxyz, mxyz
-    integer :: lx,ly,lz
-    real(wp) :: dx,dy,dz,argc
-
-    allocate(A_covar(lattice_count,lattice_count))
-    do nx = 1, lattice_dimx
-        do ny = 1, lattice_dimy
-            do nz = 1, lattice_dimz
-                nxyz = lattice_index_arr(nx, ny, nz)
-                do mx=1,lattice_dimx
-                    do my=1,lattice_dimy
-                        do mz=1,lattice_dimz
-                            mxyz = lattice_index_arr(mx, my, mz)
-                            lx = (nx-mx)
-                            ly = (ny-my)
-                            lz = (nz-mz)
-                            dx = (lx*1.0_wp)*x_spacing
-                            dy = (ly*1.0_wp)*y_spacing
-                            dz = (lz*1.0_wp)*z_spacing
-                            if (ANY(l0 .eq. 0.0_wp)) then
-                                ! write(*,*) '0 l0'
-                                argc = 0.0_wp
-                                if (nxyz .eq. mxyz) then
-                                    A_covar(nxyz,mxyz) = 1.0_wp
-                                else 
-                                    A_covar(nxyz,mxyz) = 0.0_wp
-                                end if
-                            else
-                                argc = dsqrt((dx/l0(1))**2 + (dy/l0(2))**2 + (dz/l0(3))**2)
-                                A_covar(nxyz,mxyz) = ((sigma**2)/2)*dexp(-1.0_wp*argc)
-                            end if
-                        end do
-                    end do
-                end do
-            end do 
-        end do
-    end do
-end subroutine
-
-subroutine cholesky_decomp(ACOV,N)
-    use variables
-    implicit none
-    external :: DPOTRF ! lapack routine to calculate the cholesky decomp of a positive semi-definite matrix
-    external :: DPSTRF
-    character*1 :: UPLO
-    integer :: INFO
-    integer :: LDA
-    integer, intent(in) :: N
-    real(wp), intent(inout) :: ACOV(n,n)
-    real(wp) :: CHOLESK_START, CHOLESK_END
-
-    UPLO = 'L'
-    LDA = N
-    call cpu_time(CHOLESK_START)
-    call DPOTRF(UPLO,N,ACOV,LDA,INFO)
-    call cpu_time(CHOLESK_END)
-    print*, ' CHOLESKY decomp done in',(CHOLESK_END-CHOLESK_START),'seconds'
-    if (INFO .ne. 0) then
-        if (INFO > 0) then
-            write(*,*) 'Matrix not positive definite, implement positive semi-definite'
-        end if
-    end if
-
-
-end subroutine
-
-subroutine draw_multivar_distr(N_samples,MU,SIGMA,A_FAC)
-    use, intrinsic :: iso_fortran_env, only: wp => real64, int64
-    use random_normal_distr, only: box_muller_vec
-    implicit none
-    external DGEMV
-    real(wp) :: SIGMA
-    integer(wp),intent(in) :: N_samples
-    real(wp), allocatable :: DELTA(:)
-    real(wp), intent(inout) :: MU(N_samples)! array of means (these will most often be the same (0) in my program)
-    real(wp), intent(in) :: A_FAC(N_samples,N_samples)
-    character*1 :: TRANS
-    integer :: N,M,LDA,INCX,INCY
-    real(wp) :: ALPHA,BETA
-    allocate(DELTA(N_samples))
-    ! write(*,*) MU(1)
-    DELTA = box_muller_vec(N_samples,MU(1),SIGMA) ! this line assumes all means are the same. This is designed to work with this distribution but should be changed if using for general multivariate normal.
-    ! write(*,*) DELTA
-    TRANS='N'
-    M=N_samples
-    N=N_samples
-    LDA=N_samples
-    INCX=1
-    INCY=1
-    ALPHA=1.0_wp
-    BETA=1.0_wp
-    call DGEMV(TRANS,M,N,ALPHA,A_FAC,LDA,DELTA,INCX,BETA,MU,INCY)
-    deallocate(DELTA)
 end subroutine
 
 
