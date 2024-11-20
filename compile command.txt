@@ -1,2 +1,0 @@
-# compile command
-ifx -Qmkl chiralpl.f90
