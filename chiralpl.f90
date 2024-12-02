@@ -6,6 +6,10 @@
 ! The Hamiltonian is first constructed, then projected into its eigenbasis.
 ! Properties are then calculated from the eigenstates and vectors.
 ! Hartree units are used throughout.
+
+
+! CHECK IF OSC STRENGTHS STORE THEIR EVAL INSTEAD OF JUST INDEX, COULD BE PLOTTING AT INCORRECT ENERGY
+
 program chiralpl
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     use variables
