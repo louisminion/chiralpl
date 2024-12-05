@@ -1,0 +1,154 @@
+program chiralplv2
+    use, intrinsic :: iso_fortran_env, only: wp => real64, int64
+    use input
+    use output
+    use variables
+    use indexv2
+    use franckcondon
+    use hamiltonianv2
+    use disorder
+    use spectra
+    use omp_lib
+    implicit none
+    integer(wp) :: o, threads, thread, vt
+    call printOutputHeader()
+    call readInput()
+
+    allocate( lattice_index_arr( lattice_dimx, lattice_dimy, lattice_dimz) )
+    call LatticeIndex(lattice_dimx, lattice_dimy, lattice_dimz, lattice_index_arr, lattice_count, general_counter, empty)
+    if ( bool_one_particle_states ) then
+        allocate( one_particle_index_arr( lattice_count, 0:max_vibs) )
+        call oneParticleIndex(one_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz, max_vibs,one_particle_counter, empty, general_counter, lattice_index_arr)
+    end if
+        if ( bool_two_particle_states ) then
+        allocate( two_particle_index_arr(lattice_count, 0:max_vibs, lattice_count, 1:max_vibs))
+        call twoParticleIndex(two_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_counter,empty, general_counter,lattice_index_arr)
+    end if
+    print*, 'Precalculating vibrational overlap integrals'
+    ! These can be done using global variables as don't need them in parallel environment
+    call calcFranckCondonTables()
+    call dipole_moment()
+    call writeDipoleArray(INPUT_NAME,lattice_dimx,lattice_dimy,lattice_dimz,mu_xyz)
+
+    print*,'Hamiltonian size()','(',general_counter,general_counter,')'
+    call checkRAM(general_counter)
+    call construct_covariance_matrix()
+    call cholesky_decomp(A_covar,lattice_count)
+    call omp_set_num_threads(num_threads)
+    CALL RANDOM_SEED 
+    write(*,*) general_counter, 'general_counter'
+
+
+
+
+    allocate(pl_specx_by_v(spec_steps,0:max_vibs))
+    allocate(pl_specy_by_v(spec_steps,0:max_vibs))
+    allocate(pl_specz_by_v(spec_steps,0:max_vibs))
+    pl_specx_by_v = 0.0_wp
+    pl_specy_by_v = 0.0_wp
+    pl_specz_by_v = 0.0_wp
+
+    !$OMP PARALLEL
+    threads = omp_get_num_threads()
+    !$OMP END PARALLEL
+    write(*,*) threads
+    !$OMP PARALLEL SHARED(A_covar,pl_specx_by_v,pl_specy_by_v,pl_specz_by_v) PRIVATE(diagonal_disorder_offsets,H,EVAL,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz,pl_specx_by_v_perconfig,pl_specy_by_v_perconfig,pl_specz_by_v_perconfig)
+    allocate(H(general_counter,general_counter))
+    allocate( EVAL( general_counter ) )
+    allocate(diagonal_disorder_offsets(lattice_count))
+    allocate(xpl_osc(max_vibs+1,general_counter))
+    allocate(ypl_osc(max_vibs+1,general_counter))
+    allocate(zpl_osc(max_vibs+1,general_counter))
+
+    allocate(pl_specx(spec_steps))
+    allocate(pl_specy(spec_steps))
+    allocate(pl_specz(spec_steps))
+
+    allocate(pl_specx_by_v_perconfig(spec_steps,0:max_vibs))
+    allocate(pl_specy_by_v_perconfig(spec_steps,0:max_vibs))
+    allocate(pl_specz_by_v_perconfig(spec_steps,0:max_vibs))
+    !$OMP DO PRIVATE(o) 
+    do o=1,configs
+        pl_specx_by_v_perconfig = 0.0_wp
+        pl_specy_by_v_perconfig = 0.0_wp
+        pl_specz_by_v_perconfig = 0.0_wp
+        diagonal_disorder_offsets = 0.0_wp
+        EVAL = 0.0_wp
+        H = 0.0_wp
+        call draw_multivar_distr(lattice_count,diagonal_disorder_offsets,sigma,A_covar)
+        ! write(*,*) diagonal_disorder_offsets
+        ! Build hamiltonian
+        ! Lots of arguments! But this is mostly so we can avoid any global variables
+        if ( bool_one_particle_states ) call build1particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx &
+        ,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
+        if ( bool_two_particle_states ) call build2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx &
+        ,lattice_dimy,lattice_dimz,max_vibs,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
+        if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz &
+        ,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing &
+        ,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
+
+        ! Hamiltonian diagonalization
+        ! write(*,*) 'H', H
+        call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
+        thread = omp_get_thread_num()
+        ! write(*,*) thread
+        ! call absorption(abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,general_counter, lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr &
+        ! ,one_particle_index_arr,mu_xyz,fc_ground_to_neutral,H)
+        call pl(xpl_osc,ypl_osc,zpl_osc,general_counter,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr,one_particle_index_arr,two_particle_index_arr &
+        ,mu_xyz,fc_ground_to_neutral,H, bool_two_particle_states)
+
+        do vt=0,max_vibs
+            call calc_vibpl_spec_per_config(vt,spec_steps,w00,lw,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz, EVAL,general_counter, temp,kB,pi)
+            pl_specx_by_v_perconfig(:,vt) = pl_specx 
+            pl_specy_by_v_perconfig(:,vt) = pl_specy 
+            pl_specz_by_v_perconfig(:,vt) = pl_specz 
+        end do
+        
+        ! call calc_vibpl_spec_per_config(vt,spec_steps,w00,lw,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz)
+        
+        
+        ! DO ADDING AT THE END OF THE LOOP SO WAITING AT A MINIMUM
+        !$omp critical(UPDATESPEC)
+        pl_specx_by_v = pl_specx_by_v + pl_specx_by_v_perconfig
+        pl_specy_by_v = pl_specy_by_v + pl_specy_by_v_perconfig
+        pl_specz_by_v = pl_specz_by_v + pl_specz_by_v_perconfig
+        ! abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg + abs_osc_strengths_x
+        ! abs_osc_strengths_y_configavg = abs_osc_strengths_y_configavg + abs_osc_strengths_y
+        !$omp end critical(UPDATESPEC)
+    end do
+    !$OMP END DO
+    deallocate(H)
+    deallocate( EVAL )
+    deallocate(diagonal_disorder_offsets)
+    deallocate(xpl_osc)
+    deallocate(ypl_osc)
+    deallocate(zpl_osc)
+
+    deallocate(pl_specx_by_v_perconfig)
+    deallocate(pl_specy_by_v_perconfig)
+    deallocate(pl_specz_by_v_perconfig)
+    !$OMP END PARALLEL
+    pl_specx_by_v = pl_specx_by_v/(configs*1.0_wp)
+    pl_specy_by_v = pl_specy_by_v/(configs*1.0_wp)
+    pl_specz_by_v = pl_specz_by_v/(configs*1.0_wp)
+    ! Reallocate pl_specx etc as only local to those threads before
+    allocate(pl_specx(spec_steps))
+    allocate(pl_specy(spec_steps))
+    allocate(pl_specz(spec_steps))
+
+    pl_specx = 0.0_wp
+    pl_specy = 0.0_wp
+    pl_specz = 0.0_wp
+    do vt=0,max_vibs
+        pl_specx = pl_specx + pl_specx_by_v(:,vt)
+        pl_specy = pl_specy + pl_specy_by_v(:,vt)
+        pl_specz = pl_specz + pl_specz_by_v(:,vt)
+
+    end do
+    call write_pl(pl_specx,pl_specy,pl_specz,INPUT_NAME,spec_steps, hw, max_vibs,w00,lw)
+    ! abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg/(configs*1.0_wp)
+    ! call calc_abs_spec()
+    ! call write_abs()
+    ! write(*,*) abs_osc_strengths_x_configavg
+
+end program

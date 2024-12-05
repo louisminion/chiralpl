@@ -1,3 +1,6 @@
+! Contains global variables.
+! Minimise the use of these objects as much as possible and only use for reading into the program.
+! Where possible, use variables declared here as arguments for subroutines in other modules, rather than accessing directly.
 module variables
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     
@@ -14,6 +17,7 @@ module variables
     integer(wp):: lattice_dimy = 1
     integer(wp):: lattice_dimz = 1
     integer(wp):: configs = 1
+    integer :: num_threads = 1
     logical :: bool_one_particle_states = .true.
     logical :: bool_two_particle_states = .true.
     logical :: H_out = .false.
@@ -46,7 +50,7 @@ module variables
     real(wp),allocatable :: A_covar(:,:)
     real(wp),allocatable :: diagonal_disorder_offsets(:)
     ! state counters
-    integer(wp) :: general_counter = 0
+    integer :: general_counter = 0
     integer(wp) :: lattice_count = 0
     integer(wp) :: one_particle_counter = 0
     integer(wp) :: two_particle_counter = 0
@@ -69,8 +73,8 @@ module variables
     real(wp), allocatable :: EVAL(:)
     integer(wp), parameter :: empty = -1
 
-    integer(wp) :: IU = 1
-    integer(wp) :: EVAL_COUNT
+    integer :: IU = 1
+    integer :: EVAL_COUNT
 
 
     ! File out names
@@ -81,20 +85,30 @@ module variables
     complex(kind=wp), parameter :: complex_zero = ( 0_wp, 0_wp )
     complex(kind=wp), allocatable:: abs_osc_strengths_x(:)
     complex(kind=wp), allocatable:: abs_osc_strengths_y(:)
+    complex(kind=wp), allocatable:: abs_osc_strengths_z(:)
     complex(kind=wp), allocatable:: abs_osc_strengths_x_configavg(:)
     complex(kind=wp), allocatable:: abs_osc_strengths_y_configavg(:)
+    complex(kind=wp), allocatable:: abs_osc_strengths_z_configavg(:)
     real(wp), allocatable :: xpl_osc(:,:)
     real(wp), allocatable :: ypl_osc(:,:)
-    real(wp), allocatable :: xpl_osc_configavg(:,:)
-    real(wp), allocatable :: ypl_osc_configavg(:,:)  
+    real(wp), allocatable :: zpl_osc(:,:)
+    ! real(wp), allocatable :: xpl_osc_configavg(:,:)
+    ! real(wp), allocatable :: ypl_osc_configavg(:,:)  
     integer, parameter  :: spec_steps = 2600
     real(wp), allocatable :: pl_specx(:)
     real(wp), allocatable :: pl_specy(:)
+    real(wp), allocatable :: pl_specz(:)
+    real(wp), allocatable :: pl_specx_by_v(:,:)
+    real(wp), allocatable :: pl_specy_by_v(:,:)
+    real(wp), allocatable :: pl_specz_by_v(:,:)
+    real(wp), allocatable :: pl_specx_by_v_perconfig(:,:)
+    real(wp), allocatable :: pl_specy_by_v_perconfig(:,:)
+    real(wp), allocatable :: pl_specz_by_v_perconfig(:,:)
     real(wp), allocatable :: abs_specx(:)
     real(wp), allocatable :: abs_specy(:)   
     real(wp), dimension(2) :: rot_strengths
+    real(wp), dimension(2) :: rot_strengths_tmp
     real(wp), allocatable :: cpl_spec(:)
-    !$OMP THREADPRIVATE(abs_osc_strengths_x,abs_osc_strengths_y,xpl_osc,ypl_osc,H,EVAL,diagonal_disorder_offsets)
     contains
 
         function cross(a,b) result(crs)
