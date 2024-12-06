@@ -86,9 +86,9 @@ module variables
     complex(kind=wp), allocatable:: abs_osc_strengths_x(:)
     complex(kind=wp), allocatable:: abs_osc_strengths_y(:)
     complex(kind=wp), allocatable:: abs_osc_strengths_z(:)
-    complex(kind=wp), allocatable:: abs_osc_strengths_x_configavg(:)
-    complex(kind=wp), allocatable:: abs_osc_strengths_y_configavg(:)
-    complex(kind=wp), allocatable:: abs_osc_strengths_z_configavg(:)
+    ! complex(kind=wp), allocatable:: abs_osc_strengths_x_configavg(:)
+    ! complex(kind=wp), allocatable:: abs_osc_strengths_y_configavg(:)
+    ! complex(kind=wp), allocatable:: abs_osc_strengths_z_configavg(:)
     real(wp), allocatable :: xpl_osc(:,:)
     real(wp), allocatable :: ypl_osc(:,:)
     real(wp), allocatable :: zpl_osc(:,:)
@@ -105,7 +105,12 @@ module variables
     real(wp), allocatable :: pl_specy_by_v_perconfig(:,:)
     real(wp), allocatable :: pl_specz_by_v_perconfig(:,:)
     real(wp), allocatable :: abs_specx(:)
-    real(wp), allocatable :: abs_specy(:)   
+    real(wp), allocatable :: abs_specy(:)
+    real(wp), allocatable :: abs_specz(:)
+    real(wp), allocatable :: abs_specx_configavg(:)
+    real(wp), allocatable :: abs_specy_configavg(:)
+    real(wp), allocatable :: abs_specz_configavg(:)    
+
     real(wp), dimension(2) :: rot_strengths
     real(wp), dimension(2) :: rot_strengths_tmp
     real(wp), allocatable :: cpl_spec(:)

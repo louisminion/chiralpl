@@ -3,7 +3,7 @@ module spectra
     ! use variables
     implicit none
     private
-    public :: absorption, pl, calc_vibpl_spec_per_config, write_pl!, write_abs
+    public :: absorption, pl, calc_vibpl_spec_per_config, write_pl, calc_abs_spec, write_abs
     contains
         subroutine absorption(abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,general_counter, lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr,one_particle_index_arr,mu_xyz,fc_ground_to_neutral,H)
             implicit none
@@ -49,61 +49,72 @@ module spectra
             end do
         end subroutine
 
-        ! subroutine calc_abs_spec()
-        !     ! use variables
-        !     implicit none
-        !     integer(wp) :: spec_point, j
-        !     real(wp) :: energy, eigenstate_energy
-        !     real(wp) :: lineshape,sum_wx, sum_wy,step
-        !     allocate(abs_specx(spec_steps))
-        !     allocate(abs_specy(spec_steps))
-        !     abs_specx = 0.0_wp
-        !     abs_specy = 0.0_wp
-        !     step = (min(maxval(EVAL),minval(EVAL) + 10000/hw) - minval(EVAL) + 8.0_wp*lw)/(1.0_wp*spec_steps) ! restrict spectrum to full or 10000cm-1 window
-        !     energy = minval(eval)-4.0_wp*lw
-        !     do spec_point=1,spec_steps
-        !         energy = energy + step ! each spec_point add same amount to energy
-        !         sum_wx = 0.0_wp
-        !         sum_wy = 0.0_wp
-        !         do j=1,general_counter
-        !             eigenstate_energy = EVAL(j)
-        !             lineshape = dexp(-(energy - eigenstate_energy)**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
-        !             sum_wx = sum_wx + lineshape*abs_osc_strengths_x_configavg(j)
-        !             sum_wy = sum_wy + lineshape*abs_osc_strengths_y_configavg(j)
-        !         end do
-        !         sum_wx = sum_wx*(1.0_wp/(1.0_wp*lattice_count))
-        !         sum_wy = sum_wy*(1.0_wp/(1.0_wp*lattice_count)) ! 1/N normalisation
-        !         abs_specx(spec_point) = sum_wx
-        !         abs_specy(spec_point) = sum_wy
-        !     end do
+        subroutine calc_abs_spec(abs_specx,abs_specy,abs_specz, EVAL,w00,lw,pi, abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,lattice_count,spec_steps,general_counter)
+            ! use variables
+            implicit none
+            integer(wp) :: spec_point, j
+            integer, intent(in) :: general_counter
+            integer(wp),intent(in) :: lattice_count,spec_steps
+            real(wp) :: energy, eigenstate_energy
+            real(wp) :: lineshape,sum_wx, sum_wy,sum_wz
+            real(wp) :: spectrum_start, spectrum_end
+            real(wp), intent(in) :: w00,lw,pi
+            real(wp), intent(inout) :: abs_specx(:), abs_specy(:), abs_specz(:)
+            complex(kind=wp), intent(in) :: abs_osc_strengths_x(:),abs_osc_strengths_y(:),abs_osc_strengths_z(:)
+            real(wp), intent(in) :: EVAL(:)
+            spectrum_start = w00/2
+            spectrum_end = w00*2
+            abs_specx = 0.0_wp
+            abs_specy = 0.0_wp
+            do spec_point=1,spec_steps
+                energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
+                sum_wx = 0.0_wp
+                sum_wy = 0.0_wp
+                sum_wz = 0.0_wp
+                do j=1,general_counter
+                    eigenstate_energy = EVAL(j)
+                    lineshape = dexp(-(energy - eigenstate_energy)**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*(lw**2)*pi)
+                    sum_wx = sum_wx + lineshape*abs_osc_strengths_x(j)
+                    sum_wy = sum_wy + lineshape*abs_osc_strengths_y(j)
+                    sum_wz = sum_wz + lineshape*abs_osc_strengths_z(j)
+                end do
+                sum_wx = sum_wx*(1.0_wp/(1.0_wp*lattice_count))
+                sum_wy = sum_wy*(1.0_wp/(1.0_wp*lattice_count)) ! 1/N normalisation
+                sum_wz = sum_wz*(1.0_wp/(1.0_wp*lattice_count))
+                abs_specx(spec_point) = sum_wx
+                abs_specy(spec_point) = sum_wy
+            end do
 
-        ! end subroutine
+        end subroutine
 
 
-        ! subroutine write_abs()
-        !     implicit none
-        !     integer(wp) :: spec_point
-        !     real(wp) :: step, energy
-
-        !     write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_abs.csv')
-        !     eval_out_f = trim(eval_out_f)
-        !     write(*,('(a,a)')) 'Writing Absorption to ',eval_out_f
-        !     108 format(*(F14.7, :, ","))
-        !     open(unit=669, file=eval_out_f, action='write')
-        !     109 format(*(A14, :, ","))
-        !     write(669,*) trim(INPUT_NAME)
-        !     write(669,*) 'hw',hw
-        !     write(669,*) 'MAX_VIBS',max_vibs
-        !     write(669,109) 'Energy','ABSX','ABSY'
-        !     ! NEED TO CHANGE THIS BIT (EVAL NOT SAVED: THREAD ISSUES)
-        !     step = (min(maxval(EVAL),minval(EVAL) + 10000/hw) - minval(EVAL) + 8.0_wp*lw)/(1.0_wp*spec_steps) ! restrict spectrum to full or 10000cm-1 window
-        !     energy = minval(eval)-4.0_wp*lw
-        !     do spec_point=1,spec_steps
-        !         energy = energy + step
-        !         write( 669, 108 ) energy*hw, abs_specx(spec_point),abs_specy(spec_point)
-        !     end do
-        !     close(669)
-        ! end subroutine
+        subroutine write_abs(abs_specx,abs_specy,abs_specz,w00,hw,max_vibs,spec_steps,INPUT_NAME)
+            implicit none
+            character*256 :: eval_out_f
+            integer(wp) :: spec_point
+            real(wp) :: step, energy,spectrum_start,spectrum_end
+            integer(wp), intent(in) :: spec_steps, max_vibs
+            character*256, intent(in) :: INPUT_NAME
+            real(wp), intent(in) :: w00,hw
+            real(wp), intent(in) :: abs_specx(:),abs_specy(:),abs_specz(:)
+            spectrum_start = w00/2
+            spectrum_end = w00*2
+            write(eval_out_f,'(a,a)') trim(INPUT_NAME), trim('_abs.csv')
+            eval_out_f = trim(eval_out_f)
+            write(*,('(a,a)')) 'Writing Absorption to ',eval_out_f
+            108 format(*(F14.7, :, ","))
+            open(unit=669, file=eval_out_f, action='write')
+            109 format(*(A14, :, ","))
+            write(669,*) trim(INPUT_NAME)
+            write(669,*) 'hw',hw
+            write(669,*) 'MAX_VIBS',max_vibs
+            write(669,109) 'Energy','ABSX','ABSY','ABSZ'
+            do spec_point=1,spec_steps
+                energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
+                write( 669, 108 ) energy*hw, abs_specx(spec_point),abs_specy(spec_point), abs_specz(spec_point)
+            end do
+            close(669)
+        end subroutine
 !
         subroutine pl(xpl_osc,ypl_osc,zpl_osc,general_counter,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr,one_particle_index_arr,two_particle_index_arr,mu_xyz,fc_ground_to_neutral,H, bool_two_particle_states)
             implicit none

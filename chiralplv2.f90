@@ -11,6 +11,7 @@ program chiralplv2
     use omp_lib
     implicit none
     integer(wp) :: o, threads, thread, vt
+    real(wp) :: start_time, end_time
     call printOutputHeader()
     call readInput()
 
@@ -38,8 +39,13 @@ program chiralplv2
     CALL RANDOM_SEED 
     write(*,*) general_counter, 'general_counter'
 
+    allocate(abs_specx_configavg(spec_steps))
+    allocate(abs_specy_configavg(spec_steps))
+    allocate(abs_specz_configavg(spec_steps))
 
-
+    abs_specx_configavg = 0.0_wp
+    abs_specy_configavg = 0.0_wp
+    abs_specz_configavg = 0.0_wp
 
     allocate(pl_specx_by_v(spec_steps,0:max_vibs))
     allocate(pl_specy_by_v(spec_steps,0:max_vibs))
@@ -47,19 +53,22 @@ program chiralplv2
     pl_specx_by_v = 0.0_wp
     pl_specy_by_v = 0.0_wp
     pl_specz_by_v = 0.0_wp
-
+    start_time = omp_get_wtime()
     !$OMP PARALLEL
     threads = omp_get_num_threads()
     !$OMP END PARALLEL
-    write(*,*) threads
-    !$OMP PARALLEL SHARED(A_covar,pl_specx_by_v,pl_specy_by_v,pl_specz_by_v) PRIVATE(diagonal_disorder_offsets,H,EVAL,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz,pl_specx_by_v_perconfig,pl_specy_by_v_perconfig,pl_specz_by_v_perconfig)
+    write(*,'(a,I0,a)') 'Entering parallelised region with ',threads,' threads'
+    !$OMP PARALLEL SHARED(A_covar,pl_specx_by_v,pl_specy_by_v,pl_specz_by_v,abs_specx_configavg,abs_specy_configavg,abs_specz_configavg) PRIVATE(diagonal_disorder_offsets,H,EVAL,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz,pl_specx_by_v_perconfig,pl_specy_by_v_perconfig &
+    !$OMP,pl_specz_by_v_perconfig,abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,abs_specx,abs_specy,abs_specz)
     allocate(H(general_counter,general_counter))
     allocate( EVAL( general_counter ) )
     allocate(diagonal_disorder_offsets(lattice_count))
     allocate(xpl_osc(max_vibs+1,general_counter))
     allocate(ypl_osc(max_vibs+1,general_counter))
     allocate(zpl_osc(max_vibs+1,general_counter))
-
+    allocate(abs_osc_strengths_x(general_counter))
+    allocate(abs_osc_strengths_y(general_counter))
+    allocate(abs_osc_strengths_z(general_counter))
     allocate(pl_specx(spec_steps))
     allocate(pl_specy(spec_steps))
     allocate(pl_specz(spec_steps))
@@ -67,6 +76,10 @@ program chiralplv2
     allocate(pl_specx_by_v_perconfig(spec_steps,0:max_vibs))
     allocate(pl_specy_by_v_perconfig(spec_steps,0:max_vibs))
     allocate(pl_specz_by_v_perconfig(spec_steps,0:max_vibs))
+
+    allocate(abs_specx(spec_steps))
+    allocate(abs_specy(spec_steps))
+    allocate(abs_specz(spec_steps))
     !$OMP DO PRIVATE(o) 
     do o=1,configs
         pl_specx_by_v_perconfig = 0.0_wp
@@ -92,8 +105,8 @@ program chiralplv2
         call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
         thread = omp_get_thread_num()
         ! write(*,*) thread
-        ! call absorption(abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,general_counter, lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr &
-        ! ,one_particle_index_arr,mu_xyz,fc_ground_to_neutral,H)
+        call absorption(abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,general_counter, lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr &
+        ,one_particle_index_arr,mu_xyz,fc_ground_to_neutral,H)
         call pl(xpl_osc,ypl_osc,zpl_osc,general_counter,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr,one_particle_index_arr,two_particle_index_arr &
         ,mu_xyz,fc_ground_to_neutral,H, bool_two_particle_states)
 
@@ -103,7 +116,7 @@ program chiralplv2
             pl_specy_by_v_perconfig(:,vt) = pl_specy 
             pl_specz_by_v_perconfig(:,vt) = pl_specz 
         end do
-        
+        call calc_abs_spec(abs_specx,abs_specy,abs_specz, EVAL,w00,lw,pi, abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,lattice_count,spec_steps,general_counter)
         ! call calc_vibpl_spec_per_config(vt,spec_steps,w00,lw,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz)
         
         
@@ -112,6 +125,9 @@ program chiralplv2
         pl_specx_by_v = pl_specx_by_v + pl_specx_by_v_perconfig
         pl_specy_by_v = pl_specy_by_v + pl_specy_by_v_perconfig
         pl_specz_by_v = pl_specz_by_v + pl_specz_by_v_perconfig
+        abs_specx_configavg = abs_specx_configavg + abs_specx
+        abs_specy_configavg = abs_specy_configavg + abs_specy
+        abs_specz_configavg = abs_specz_configavg + abs_specz
         ! abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg + abs_osc_strengths_x
         ! abs_osc_strengths_y_configavg = abs_osc_strengths_y_configavg + abs_osc_strengths_y
         !$omp end critical(UPDATESPEC)
@@ -123,14 +139,24 @@ program chiralplv2
     deallocate(xpl_osc)
     deallocate(ypl_osc)
     deallocate(zpl_osc)
-
+    deallocate(abs_osc_strengths_x)
+    deallocate(abs_osc_strengths_y)
+    deallocate(abs_osc_strengths_z)
+    deallocate(abs_specx)
+    deallocate(abs_specy)
+    deallocate(abs_specz)
     deallocate(pl_specx_by_v_perconfig)
     deallocate(pl_specy_by_v_perconfig)
     deallocate(pl_specz_by_v_perconfig)
     !$OMP END PARALLEL
+    end_time = omp_get_wtime()
+    write(*,'(a,F12.5,a)') 'Configurational average completed in',end_time-start_time,' seconds.'
     pl_specx_by_v = pl_specx_by_v/(configs*1.0_wp)
     pl_specy_by_v = pl_specy_by_v/(configs*1.0_wp)
     pl_specz_by_v = pl_specz_by_v/(configs*1.0_wp)
+    abs_specx_configavg = abs_specx_configavg/(configs*1.0_wp)
+    abs_specy_configavg = abs_specy_configavg/(configs*1.0_wp)
+    abs_specz_configavg = abs_specz_configavg/(configs*1.0_wp)
     ! Reallocate pl_specx etc as only local to those threads before
     allocate(pl_specx(spec_steps))
     allocate(pl_specy(spec_steps))
@@ -146,6 +172,7 @@ program chiralplv2
 
     end do
     call write_pl(pl_specx,pl_specy,pl_specz,INPUT_NAME,spec_steps, hw, max_vibs,w00,lw)
+    call write_abs(abs_specx_configavg,abs_specy_configavg,abs_specz_configavg,w00,hw,max_vibs,spec_steps,INPUT_NAME)
     ! abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg/(configs*1.0_wp)
     ! call calc_abs_spec()
     ! call write_abs()
