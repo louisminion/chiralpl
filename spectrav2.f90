@@ -707,5 +707,48 @@ module spectra
             close(668)
         end subroutine
 
+        subroutine cd(cd_rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral)
+            implicit none
+            ! indices for vibronic excitations
+            integer(wp) nx,ny,nz,n,mx,my,mz,m,vib
+            integer(wp) j
+            integer(wp) :: h_i
+            real(wp) :: c_nv, c_mv
+            real(wp), dimension(3) :: mu_m, mu_n
+            real(wp), dimension(3) :: crossproduct    
+
+            do j=1,general_counter
+                do nx=1,lattice_dimx
+                    do ny=1,lattice_dimy
+                        do nz=1,lattice_dimz
+                            n = lattice_index_arr(nx,ny,nz)
+                            mu_n = mu_xyz(n,:)
+                            do mx=1,lattice_dimx
+                                do my=1,lattice_dimy
+                                    do mz=1,lattice_dimy
+                                        m = lattice_index_arr(mx,my,mz)
+                                        mu_m = mu_xyz(m,:)
+                                        crossproduct = cross(mu_n,mu_m)
+                                        do vib=0,max_vibs
+                                            do vib2=0,max_vibs
+                                                h_i = one_particle_index_arr( n, vib )
+                                                c_nv = H(h_i,j)
+                                                h_j = one_particle_index_arr( m, vib2 )
+                                                c_mv = H(h_j,j)
+                                                
+                                            end do
+
+                                        end do
+
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+
+        end subroutine
+
 
 end module
