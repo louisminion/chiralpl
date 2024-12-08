@@ -4,4 +4,5 @@
 *.mod
 *.csv
 fort.*
+*.pdb
 simulations/*
