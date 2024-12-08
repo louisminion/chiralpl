@@ -15,6 +15,7 @@ module disorder
     ! Fourth step; delta = mu + B*Z, where mu is the mean vector of the prob distribution.
     ! Computational effort can be saved by only doing the first two steps once, rather than once per configuration.
         subroutine construct_covariance_matrix()
+            ! doesn't need to be done in do loop, can use global variables.
             use variables
             implicit none
             integer(wp) :: nx,ny,nz,mx,my,mz, nxyz, mxyz

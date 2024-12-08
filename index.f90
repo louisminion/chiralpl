@@ -1,19 +1,17 @@
 module index
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
-    use variables
     implicit none
     private
     public :: LatticeIndex, oneParticleIndex, twoParticleIndex
     contains
-        subroutine LatticeIndex()
-            use variables
+        subroutine LatticeIndex(lattice_dimx, lattice_dimy, lattice_dimz, lattice_index_arr, lattice_count, general_counter, empty)
             implicit none
             integer(wp) :: i_x, i_y, i_z
+            integer, intent(inout) :: general_counter
+            integer(wp), intent(inout) ::  lattice_count
+            integer(wp), intent(in) :: lattice_dimx, lattice_dimy, lattice_dimz, empty
+            integer(wp), dimension(:,:,:), intent(inout) :: lattice_index_arr
         
-            ! Check if arr allocated, if not allocate as 3D array of size lattice_dimx,lattice_dimy,lattice_dimz
-            if ( .not. allocated( lattice_index_arr ) ) then 
-                allocate( lattice_index_arr( lattice_dimx, lattice_dimy, lattice_dimz) )
-            end if
             lattice_index_arr = empty
             ! Write chromophore indices to index_arr elements
             do i_x=1,lattice_dimx
@@ -29,14 +27,14 @@ module index
         end subroutine
         
         
-        subroutine oneParticleIndex()
-            use variables
+        subroutine oneParticleIndex(one_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz, max_vibs,one_particle_counter, empty, general_counter, lattice_index_arr)
             implicit none
+            integer(wp), dimension(:,0:) :: one_particle_index_arr
+            integer(wp), dimension(:,:,:), intent(in) :: lattice_index_arr
+            integer(wp), intent(inout) :: one_particle_counter
+            integer, intent(inout) :: general_counter
+            integer(wp), intent(in) :: max_vibs, lattice_dimx, lattice_dimy, lattice_dimz, empty
             integer(wp) :: i_x, i_y, i_z, vib, indx_xyz
-            ! Check if arr allocated, if not then allocate as 2D array of size (no_sites_lattice, max_vibs+1)
-            if ( .not. allocated( one_particle_index_arr ) ) then 
-                allocate( one_particle_index_arr( lattice_count, 0:max_vibs) )
-            end if
             one_particle_index_arr = empty
             ! iterate over all sites in 3d lattice, each of which is a row in the matrix, with columns as vib state inds
             do i_x = 1, lattice_dimx
@@ -54,19 +52,19 @@ module index
             print*, one_particle_counter, 'One particle states'
         end subroutine
         
-        subroutine twoParticleIndex()
-            use variables
+        subroutine twoParticleIndex(two_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_counter,empty, general_counter,lattice_index_arr)
             ! index two-particle states; two particle states consist of a vibronic excitation on one site and a vibrational excitation on another
             ! therefore each combination of site with vibronic exc and vibrational exc on other site need an index number
             implicit none
             integer(wp) i_x, i_y, i_z, i_xyz, vib ! indices for vibronic excitations
             integer(wp) i_xv, i_yv, i_zv, i_xyzv, vibv ! indices for vibrational excitations
-        
-        
-            if (.not. allocated(two_particle_index_arr)) then
-                allocate( two_particle_index_arr(lattice_count, 0:max_vibs, lattice_count, 1:max_vibs))
-            
-            end if
+            integer(wp), intent(in) :: max_vibs, lattice_dimx, lattice_dimy, lattice_dimz, empty
+            integer(wp), dimension(:,:,:), intent(in) :: lattice_index_arr
+            integer(wp), intent(inout) :: two_particle_index_arr(:,0:,:,1:)
+            integer(wp), intent(inout) :: two_particle_counter
+            integer, intent(inout) :: general_counter
+
+
             two_particle_index_arr = empty
             do i_x=1,lattice_dimx
                 do i_y=1,lattice_dimy

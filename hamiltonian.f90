@@ -1,12 +1,13 @@
 module hamiltonian
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
-    use variables
     implicit none
     private
     public :: dipole_moment, coupling, build1particleHamiltonian, build2particleHamiltonian, build1particle2particleHamiltonian, Diagonalize
 
     contains
         subroutine dipole_moment
+            ! Calculates the dipole moments for each chromophore in an aggregrate depending on the chosen geometry
+            ! Can use global variables as not called in openmp loop
             use variables
             implicit none
             integer(wp) :: ix,iy,iz,ixyz
@@ -23,24 +24,29 @@ module hamiltonian
             end do
         end subroutine
 
-        real(wp) function coupling(x1,y1,z1,x2,y2,z2)
+        real(wp) function coupling(x1,y1,z1,x2,y2,z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)
             integer(wp), intent(in) :: x1,y1,z1,x2,y2,z2
             integer(wp) :: d_x, d_y, d_z, i_xyz1, i_xyz2
             real(wp) :: dx,dy,dz
             real(wp), dimension(3) :: R, R_norm
+            real(wp), intent(in) :: mu_xyz(:,:)
+            integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            real(wp), intent(in) :: x_spacing,y_spacing,z_spacing
             real(wp) :: R_mag
             real(wp) :: CT_couple_alongchain
             real(wp) :: dipole_dot_product
             real(wp) :: mu1_dotR
             real(wp) :: mu2_dotR
+            real(wp) :: pi, epsilon
+            logical, intent(in) :: manual_coupling
             coupling  = 0.0_wp
 
             d_x = abs(x2-x1)
             d_y = abs(y2-y1)
             d_z = abs(z2-z1)
-            if (manual_coupling .eq. .true.) then
-                go to 78
-            end if
+            ! if (manual_coupling .eq. .true.) then
+            !     go to 78
+            ! end if
             CT_couple_alongchain = 0.0_wp
             dipole_dot_product = 0.0_wp
             mu1_dotR = 0.0_wp
@@ -72,34 +78,44 @@ module hamiltonian
             mu2_dotR = mu_xyz(i_xyz2,1)*R_norm(1) + mu_xyz(i_xyz2,2)*R_norm(2) + mu_xyz(i_xyz2,2)*R_norm(2)
             coupling = (1/(4*pi*epsilon*(R_mag**3)))*(dipole_dot_product-(3*mu1_dotR*mu2_dotR))
             return
-            78 if (d_y .eq. 0 .and. d_z .eq. 0) then
-                if (d_x .eq. 1) then
-                    coupling = JCoulx !+ te_x + th_x
-                end if
-                return
+            ! 78 if (d_y .eq. 0 .and. d_z .eq. 0) then
+            !     if (d_x .eq. 1) then
+            !         coupling = JCoulx !+ te_x + th_x
+            !     end if
+            !     return
 
-            end if
+            ! end if
 
-            if (d_x .eq. 0 .and. d_z .eq. 0) then
-                if (d_y .eq. 1) then
-                    coupling = JCouly !+ te_x + th_x
-                end if
-                return
-            end if
-            if (d_x .eq. 0 .and. d_y .eq. 0) then
-                if (d_z .eq. 1) then
-                    coupling = JCoulz !+ te_x + th_x
-                end if
-                return
+            ! if (d_x .eq. 0 .and. d_z .eq. 0) then
+            !     if (d_y .eq. 1) then
+            !         coupling = JCouly !+ te_x + th_x
+            !     end if
+            !     return
+            ! end if
+            ! if (d_x .eq. 0 .and. d_y .eq. 0) then
+            !     if (d_z .eq. 1) then
+            !         coupling = JCoulz !+ te_x + th_x
+            !     end if
+            !     return
 
-            end if
+            ! end if
             return
 
         end function
 
-        subroutine build1particleHamiltonian()
-            use variables
+        subroutine build1particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
             implicit none
+            real(wp), intent(inout) :: H(:,:)
+            real(wp), intent(in) :: diagonal_disorder_offsets(:)
+            integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz,max_vibs
+            real(wp), intent(in) :: x_spacing, y_spacing, z_spacing
+            integer(wp), intent(in) :: one_particle_index_arr(:,0:)
+            integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            logical, intent(in) :: manual_coupling
+            real(wp), intent(in) :: pi,epsilon,w00
+            real(wp), intent(in) :: mu_xyz(:,:)
+            real(wp), intent(in) :: fc_ground_to_neutral(0:,0:)
+            integer(wp) :: empty = -1
             integer(wp) :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i ! x,y,z coords for vibronic exc on 1
             integer(wp) :: i_x2, i_y2, i_z2, vib_i2, i_xyz2, h_j ! x,y,z coords for vibronic exc on 2
             ! h_i and h_j are hamiltonian indices
@@ -119,7 +135,7 @@ module hamiltonian
                                             h_j = one_particle_index_arr(i_xyz2, vib_i2)
                                             if ( h_j == empty ) cycle
                                             if (h_j .eq. h_i) cycle
-                                            H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                            H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                             H(h_j, h_i) = H(h_i, h_j)
                                         end do
                                     end do
@@ -132,9 +148,19 @@ module hamiltonian
 
         end subroutine
 
-        subroutine build2particleHamiltonian()
-            use variables
+        subroutine build2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
             implicit none
+            real(wp), intent(inout) :: H(:,:)
+            real(wp), intent(in) :: diagonal_disorder_offsets(:)
+            integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz,max_vibs
+            real(wp), intent(in) :: x_spacing, y_spacing, z_spacing
+            integer(wp), intent(in) :: two_particle_index_arr(:,0:,:,1:)
+            integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            logical, intent(in) :: manual_coupling
+            real(wp), intent(in) :: pi,epsilon,w00
+            real(wp), intent(in) :: mu_xyz(:,:)
+            real(wp), intent(in) :: fc_ground_to_neutral(0:,0:)
+            integer(wp) :: empty = -1
             integer(wp) :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i
             integer(wp) :: i_x1v, i_y1v, i_z1v, vib_i1v, i_xyz1v ! indices for vibrationally only excited site
             integer(wp) :: i_x2, i_y2, i_z2, vib_i2, i_xyz2, h_j
@@ -163,7 +189,7 @@ module hamiltonian
                                                             if (h_j .eq. empty .or. h_j .eq. h_i) then
                                                                 continue
                                                             else
-                                                                H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)* &
+                                                                H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)* &
                                                                 fc_ground_to_neutral(0, vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                                                 H(h_j,h_i) = H(h_i,h_j)
                                                             end if
@@ -172,7 +198,7 @@ module hamiltonian
                                                                 do vib_i2v=1, max_vibs
                                                                     h_j = two_particle_index_arr(i_xyz2, vib_i2, i_xyz2v, vib_i2v)
                                                                     if ( h_j .eq. empty .or. h_j .eq. h_i ) cycle
-                                                                    H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(vib_i2v, vib_i1)*fc_ground_to_neutral(vib_i1v,vib_i2)
+                                                                    H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v, vib_i1)*fc_ground_to_neutral(vib_i1v,vib_i2)
                                                                     H(h_j, h_i) = H(h_i, h_j)
                                                                 end do
                                                             end if
@@ -191,9 +217,20 @@ module hamiltonian
         end subroutine
 
 
-        subroutine build1particle2particleHamiltonian()
-            use variables
+        subroutine build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
             implicit none
+            real(wp), intent(inout) :: H(:,:)
+            real(wp), intent(in) :: diagonal_disorder_offsets(:)
+            integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz,max_vibs
+            real(wp), intent(in) :: x_spacing, y_spacing, z_spacing
+            integer(wp), intent(in) :: one_particle_index_arr(:,0:)
+            integer(wp), intent(in) :: two_particle_index_arr(:,0:,:,1:)
+            integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            logical, intent(in) :: manual_coupling
+            real(wp), intent(in) :: pi,epsilon,w00
+            real(wp), intent(in) :: mu_xyz(:,:)
+            real(wp), intent(in) :: fc_ground_to_neutral(0:,0:)
+            integer(wp) :: empty = -1
             integer(wp) i_x1, i_y1, i_z1, i_xyz1, vib_i1, h_i ! coords of the vibronic exc in 1 in the one particle state
             integer(wp) i_x2, i_y2, i_z2, i_xyz2, vib_i2, h_j ! coords of the vibronic (electronic+vib) excitation in 2 in the two particle state
             integer(wp) i_x2v, i_y2v, i_z2v, i_xyz2v, vib_i2v ! coords of the pure vibrational excitation in 2 in the two particle state
@@ -217,7 +254,7 @@ module hamiltonian
                                             do vib_i2v=1,max_vibs
                                                 h_j = two_particle_index_arr(i_xyz2,vib_i2,i_xyz2v,vib_i2v)
                                                 if (h_j .eq. empty) cycle
-                                                H(h_i,h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                                H(h_i,h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                                 H(h_j,h_i) = H(h_i,h_j)
                                             end do
                                         end do
@@ -235,30 +272,31 @@ module hamiltonian
             use variables
             implicit none
             character*1, intent(in) :: RANGE ! RANGE is which eigenvalues are calculated, RANGE='A' is all, 'V' and 'I' allow selection
-            integer(wp), intent(in) :: N,I_U !N is the order of the matrix, IU controls largest eigenvalue returned if RANGE='I'. IU not ref'd if RANGE='V' or 'A'
+            integer, intent(in) :: N !N is the order of the matrix 
+            integer, intent(in) :: I_U !IU controls largest eigenvalue returned if RANGE='I'. IU not ref'd if RANGE='V' or 'A'
             real(wp), intent(inout) :: A(n,n) ! A is the Hamiltonian matrix, on exit it is assigned to the eigenvecs
             real(wp), intent(out) :: W(n) ! Array of eigenvalues in ascending order
-            integer(wp), intent(out)  :: M ! number of eigenvalues found.
+            integer, intent(out)  :: M ! number of eigenvalues found.
             character*1 :: JOBV, UPLO ! JOBV controls whether eigenvecs and vals are calc'd (='V'), or just eigenvals (='N'). UPLO controls whether on exit from DSYEVR A stores upper or lower triangular matrix
             parameter  (JOBV='V', UPLO='U')
 
-            integer(wp) :: LDA ! array leading dimension
+            integer :: LDA ! array leading dimension
             real(wp) :: VL = -3.0_wp ! lower and upper of interval to search for eigenvalues if RANGE='V'. Not accessed
             real(wp) :: VU = 20.0_wp
-            integer(wp) :: IL = 1 ! lower bound of IL->IU if only selected eigenvals requested.
+            integer :: IL = 1 ! lower bound of IL->IU if only selected eigenvals requested.
             real(wp) :: ABSTOL ! absolute error tolerance for eigenvals, 
 
             real(wp), external :: dlamchm ! utility func to determine machine parameters for minimum error tolerance without overflow
             real(wp), allocatable  :: Z(:,:) ! eigenvectors of A in columns
-            integer(wp) :: LDZ ! leading dimension of z
-            integer(wp) :: ISUPPZ(2*max(1,N))
+            integer :: LDZ ! leading dimension of z
+            integer :: ISUPPZ(2*max(1,N))
             real(wp), allocatable :: WORK(:)
             real(wp) :: WORK_DIM(1)
-            integer(wp) :: LWORK
-            integer(wp), allocatable :: IWORK(:)
-            integer(wp) :: IWORK_DIM(1)
-            integer(wp) :: LIWORK
-            integer(wp) :: INFO
+            integer :: LWORK
+            integer, allocatable :: IWORK(:)
+            integer :: IWORK_DIM(1)
+            integer :: LIWORK
+            integer :: INFO
             real(wp) :: DIAG_START, DIAG_END
             real(wp), external :: dlamch
             external :: dsyevr
@@ -272,11 +310,13 @@ module hamiltonian
             ! First, query workspace with LWORK and LIWORK set to -1. This calcs the optimal size of the WORK and IWORK arrays
             LWORK = -1
             LIWORK = -1
+            ! write(*,*) SIZE(H), 'SIZE(H)'
             call dsyevr(JOBV,RANGE,UPLO,N,A,LDA,VL,VU,IL,I_U,ABSTOL,M,W,Z,LDZ,ISUPPZ,WORK_DIM,LWORK,IWORK_DIM,LIWORK,INFO)
             LWORK = WORK_DIM(1)
             LIWORK = IWORK_DIM(1)
             ! allocate WORK and IWORK arrays
             allocate(WORK(LWORK))
+            ! write(*,*) LIWORK, 'LIWORK' 
             allocate(IWORK(LIWORK))
             ! print*, ' Begin Hamiltonian diagonalization'
             ! print*, '*****************************************'
