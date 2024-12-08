@@ -104,6 +104,20 @@ plt.savefig(f+'_dipoles.png')
 
 plt.show()
 
+cd_file = f + '_cd.csv'
+
+
+df= pd.read_csv(cd_file,skiprows=3)
+df = df.rename(columns=lambda x: x.strip())
+print(df.columns)
+fig,ax = plt.subplots()
+
+df['Wavelength'] = (1/df['Energy'])*1E7
+ax.plot(df['Energy'],df['CD'])
+ax.set_xlabel('Wavenumber (cm$^{-1}$)')
+ax.set_ylabel('CD')
+plt.savefig(f+'_cd.png')
+
 
 cpl_file = f + '_cpl.csv'
 

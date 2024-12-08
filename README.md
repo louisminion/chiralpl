@@ -1,6 +1,7 @@
 # chiralpl
 
 Simulates vibronic spectra of aggregates of organic chromophores using the Holstein Hamiltonian in the multiparticle basis spectra.
+Designed for chiral aggregates.
 See EXAMPLE.inp for an example input file.
 Compilation requires intel fortran compiler ifx and the MKL library (LAPACK).
 
@@ -9,8 +10,10 @@ Compilation requires intel fortran compiler ifx and the MKL library (LAPACK).
 - [x] Point dipole approximation dipole-dipole coupling of N nearest neighbours
 - [x] Simulation and plotting of absorption and PL spectra with up to 4 vibrational quanta in the ground state.
 - [x] Properties calculated over configurational average of "diagonal disorder".
-- [ ] Simulation of CPL and CD spectra (Nearly there!)
-- [ ] Parallelisation of configurational average using OpenMP
+- [x] Parallelisation of configurational average using OpenMP
+- [x] Simulation of CD spectra
+- [ ] Simulation of CPL spectra (Nearly there!)
+- [ ] Effects of charge-transfer interactions.
 - [ ] Simulation of very large systems using sparse matrices.
 
 ### References
