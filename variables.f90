@@ -109,21 +109,13 @@ module variables
     real(wp), allocatable :: abs_specz(:)
     real(wp), allocatable :: abs_specx_configavg(:)
     real(wp), allocatable :: abs_specy_configavg(:)
-    real(wp), allocatable :: abs_specz_configavg(:)    
+    real(wp), allocatable :: abs_specz_configavg(:)
+    real(wp), allocatable :: cd_rot_strengths(:)
+    real(wp), allocatable :: cd_spec(:)
+    real(wp), allocatable :: cd_spec_avg(:)
 
     real(wp), dimension(2) :: rot_strengths
     real(wp), dimension(2) :: rot_strengths_tmp
     real(wp), allocatable :: cpl_spec(:)
-    contains
-
-        function cross(a,b) result(crs)
-            implicit none
-            real(wp), dimension(3) :: crs
-            real(wp), intent(in),dimension(3) :: a,b
-            crs(1) = a(2)*b(3) - a(3)*b(2)
-            crs(2) = a(3)*b(1) - a(1)*b(3)
-            crs(3) = a(1)*b(2) - a(2)*b(1)
-            return
-        end function
 
 end module
