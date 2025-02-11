@@ -40,6 +40,8 @@ module input
                     select case ( label )
                     case ( 'INPUT_NAME' )
                         read(buffer, *, iostat=io_stat) INPUT_NAME
+                    case ( 'GEOMETRY_TYPE' )
+                        read(buffer, *,iostat=io_stat) GEOMETRY_TYPE
                     case ( 'LATTICE_DIMX' )
                         read(buffer, *, iostat=io_stat) lattice_dimx
                     case ( 'LATTICE_DIMY' )

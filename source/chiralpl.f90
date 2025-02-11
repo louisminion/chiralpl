@@ -5,12 +5,13 @@ program chiralpl
     use variables
     use index
     use franckcondon
+    use geometry
     use hamiltonian
     use disorder
     use spectra
     use omp_lib
     implicit none
-    integer(wp) :: o, threads, thread, vt
+    integer(wp) :: o, threads, thread, vt,x
     real(wp) :: start_time, end_time
     call printOutputHeader()
     call readInput()
@@ -28,6 +29,13 @@ program chiralpl
     print*, 'Precalculating vibrational overlap integrals'
     ! These can be done using global variables as don't need them in parallel environment
     call calcFranckCondonTables()
+    !implement accurate geometry
+    call construct_geometry(r_xyz,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,x_spacing,y_spacing,z_spacing,phi,theta,period_Jtwist,lattice_count,lattice_index_arr)
+    open(unit=90, file='RARR')
+    do x = 1, size(r_xyz,dim=1)
+        write(90, '(*(F12.8 : ", "))') r_xyz(x, 1),r_xyz(x, 2),r_xyz(x, 3)
+    end do
+    close(90)
     call dipole_moment()
     call writeDipoleArray(INPUT_NAME,lattice_dimx,lattice_dimy,lattice_dimz,mu_xyz)
 

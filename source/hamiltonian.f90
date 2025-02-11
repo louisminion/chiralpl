@@ -13,15 +13,43 @@ module hamiltonian
             integer(wp) :: ix,iy,iz,ixyz
             allocate(mu_xyz(lattice_count,3))
             mu_xyz = 0.0_wp
-            do ix=1,lattice_dimx
-                do iy=1,lattice_dimy
-                    do iz=1,lattice_dimz
-                        ixyz = lattice_index_arr(ix,iy,iz)
-                        mu_xyz(ixyz,1) = mu_0*cos((iz*1.0_wp)*phi) ! H-stack of dipoles
-                        mu_xyz(ixyz,2) = mu_0*sin((iz*1.0_wp)*phi) ! H-stack of dipoles
+            if (GEOMETRY_TYPE .eq. 0) then
+                do ix=1,lattice_dimx
+                    do iy=1,lattice_dimy
+                        do iz=1,lattice_dimz
+                            ixyz = lattice_index_arr(ix,iy,iz)
+                            mu_xyz(ixyz,1) = mu_0*cos((iz*1.0_wp-1.0_wp)*phi)
+                            mu_xyz(ixyz,2) = mu_0*sin((iz*1.0_wp-1.0_wp)*phi)
+                        end do
                     end do
                 end do
-            end do
+
+            else if (GEOMETRY_TYPE .eq. 1) then
+                do ix=1,lattice_dimx
+                    do iy=1,lattice_dimy
+                        do iz=1,lattice_dimz
+                            ixyz = lattice_index_arr(ix,iy,iz)
+                            mu_xyz(ixyz,1) = mu_0*cos((iz*1.0_wp-1.0_wp)*phi)
+                            mu_xyz(ixyz,2) = mu_0*sin((iz*1.0_wp-1.0_wp)*phi)*cos(2.0_wp*pi*(1.0_wp*iy)/(period_Jtwist*1.0_wp))
+                            mu_xyz(ixyz,3) = mu_0*sin((iz*1.0_wp-1.0_wp)*phi)*sin(2.0_wp*pi*(1.0_wp*iy)/(period_Jtwist*1.0_wp))
+                        end do
+                    end do
+                end do
+
+            ! else if (GEOMETRY_TYPE .eq. 2) then ! helically coiled polymer, x dimension is the polymer length.
+            !     counter = 0.0_wp
+            !     sum_xpos = 0.0_wp
+            !     sum_ypos = 0.0_wp
+            !     do ix=1,lattice_dimx
+            !         ixyz = lattice_index_arr(ix,1,1)
+            !         sum_xpos = sum_xpos + x_spacing*cos(((ix*1.0_wp)-2.0_wp)*phi)
+            !         sum_ypos = sum_ypos + x_spacing*sin(((ix*1.0_wp)-2.0_wp)*phi)
+            !         r_xyz(ixyz,1)= sum_xpos
+            !         r_xyz(ixyz,2)= sum_ypos
+            !         r_xyz(ixyz,3) = x_spacing*((ix*1.0_wp)-1.0_wp)
+            !     end do
+
+            end if 
         end subroutine
 
         real(wp) function coupling(x1,y1,z1,x2,y2,z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)

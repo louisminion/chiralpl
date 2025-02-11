@@ -55,6 +55,7 @@ module output
         do j = 1, size(mu_xyz,dim=1)
             write(33, '(*(F12.8 : ", "))') mu_xyz(j, 1),mu_xyz(j, 2),mu_xyz(j, 3)
         end do
+        close(33)
 
     end subroutine
 

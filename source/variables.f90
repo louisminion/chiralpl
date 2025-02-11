@@ -13,6 +13,7 @@ module variables
     real(wp), parameter :: kB = 0.6956925_wp ! boltzmann constant Eh/K
     ! INPUTS TO ENSURE A DEFAULT
     character*256 :: INPUT_NAME
+    integer(wp) :: GEOMETRY_TYPE = 0 ! 0=straight wires along x, twist between consecutive chains controlled by twist angle, 1=twisted wire with dipoles pointing out of the wire,can be H aggregated as well, 2=helical coil
     integer(wp):: lattice_dimx = 1
     integer(wp):: lattice_dimy = 1
     integer(wp):: lattice_dimz = 1
@@ -26,6 +27,7 @@ module variables
     logical :: manual_coupling = .true. ! if true, then doesn't calculate JCouplings individually, just uses inputs JCoulx,JCouly,JCoulz
     integer(wp) :: max_vibs
     integer(wp) :: n_nearest_neighbour = 1
+    integer(wp) :: period_Jtwist = 5 ! number of chromophores for full turn in type 1 aggregates
     real(wp) :: lambda_neutral  = 1.0_wp
     real(wp) :: w00 = 14000.0_wp
     real(wp) :: hw = 1400.0_wp
@@ -40,6 +42,7 @@ module variables
     real(wp) :: th_y = 700.0_wp  
     real(wp) :: lw  = 250.0_wp
     real(wp) :: phi = 0.0_wp ! twist angle for chiral aggregates
+    real(wp) :: theta = 0.0_wp ! the angle of precession of dipoles in helical twisted straight chains (type 1)
     real(wp) :: x_spacing = 1.0_wp
     real(wp) :: y_spacing = 1.0_wp
     real(wp) :: z_spacing = 1.0_wp ! in case stacking is further spaced than spacing along polymer
@@ -66,6 +69,8 @@ module variables
 
     ! array of dipole moment vectors
     real(wp), allocatable :: mu_xyz(:,:)
+    ! array of position vectors
+    real(wp), allocatable :: r_xyz(:,:)
 
     ! hamiltonian, H
     ! The hamiltonian is a 2d array
