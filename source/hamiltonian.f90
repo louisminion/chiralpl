@@ -10,7 +10,8 @@ module hamiltonian
             ! Can use global variables as not called in openmp loop
             use variables
             implicit none
-            integer(wp) :: ix,iy,iz,ixyz
+            integer(wp) :: ix,iy,iz,ixyz, polymer_chain_index
+            ! real(wp) :: counter
             allocate(mu_xyz(lattice_count,3))
             mu_xyz = 0.0_wp
             if (GEOMETRY_TYPE .eq. 0) then
@@ -25,39 +26,43 @@ module hamiltonian
                 end do
 
             else if (GEOMETRY_TYPE .eq. 1) then
-                do ix=1,lattice_dimx
+                do iz=1,lattice_dimz
+                    polymer_chain_index = 0
                     do iy=1,lattice_dimy
-                        do iz=1,lattice_dimz
+                        do ix=1,lattice_dimx
+                            polymer_chain_index = polymer_chain_index + 1
                             ixyz = lattice_index_arr(ix,iy,iz)
-                            mu_xyz(ixyz,1) = mu_0*cos((iz*1.0_wp-1.0_wp)*phi)
-                            mu_xyz(ixyz,2) = mu_0*sin((iz*1.0_wp-1.0_wp)*phi)*cos(2.0_wp*pi*(1.0_wp*iy)/(period_Jtwist*1.0_wp))
-                            mu_xyz(ixyz,3) = mu_0*sin((iz*1.0_wp-1.0_wp)*phi)*sin(2.0_wp*pi*(1.0_wp*iy)/(period_Jtwist*1.0_wp))
+                            mu_xyz(ixyz,1) = mu_0*(cos(twist_angle*polymer_chain_index)*cos(theta+(iz*1.0_wp-1.0_wp)*phi)+cos((iz*1.0_wp-1.0_wp)*phi)*cos(theta)-cos(twist_angle*polymer_chain_index)*cos((iz*1.0_wp-1.0_wp)*phi)*cos(theta))
+                            mu_xyz(ixyz,2) = mu_0*(cos(twist_angle*polymer_chain_index)*sin(theta+(iz*1.0_wp-1.0_wp)*phi)+sin((iz*1.0_wp-1.0_wp)*phi)*cos(theta)-cos(twist_angle*polymer_chain_index)*sin((iz*1.0_wp-1.0_wp)*phi)*cos(theta))
+                            mu_xyz(ixyz,3) = mu_0*(sin(twist_angle*polymer_chain_index)*sin(theta)*cos(2*((iz*1.0_wp-1.0_wp)*phi)))
+                            ! mu_xyz(ixyz,1) = mu_0*(cos(theta)*cos((iz*1.0_wp-1.0_wp)*phi)-sin(theta)*sin((iz*1.0_wp-1.0_wp)*phi))
+                            ! mu_xyz(ixyz,2) = mu_0*(sin(theta)*cos((iz*1.0_wp-1.0_wp)*phi)+cos(theta)*sin((iz*1.0_wp-1.0_wp)*phi))
+                            ! mu_xyz(ixyz,3) = 0
                         end do
                     end do
                 end do
 
-            ! else if (GEOMETRY_TYPE .eq. 2) then ! helically coiled polymer, x dimension is the polymer length.
-            !     counter = 0.0_wp
-            !     sum_xpos = 0.0_wp
-            !     sum_ypos = 0.0_wp
-            !     do ix=1,lattice_dimx
-            !         ixyz = lattice_index_arr(ix,1,1)
-            !         sum_xpos = sum_xpos + x_spacing*cos(((ix*1.0_wp)-2.0_wp)*phi)
-            !         sum_ypos = sum_ypos + x_spacing*sin(((ix*1.0_wp)-2.0_wp)*phi)
-            !         r_xyz(ixyz,1)= sum_xpos
-            !         r_xyz(ixyz,2)= sum_ypos
-            !         r_xyz(ixyz,3) = x_spacing*((ix*1.0_wp)-1.0_wp)
-            !     end do
+            else if (GEOMETRY_TYPE .eq. 2) then ! helically coiled polymer, x dimension is the polymer length.
+                ! counter = 0.0_wp
+                do ix=1,lattice_dimx
+                    ixyz = lattice_index_arr(ix,1,1)
+                    ! sum_xpos = sum_xpos + x_spacing*cos(((ix*1.0_wp)-2.0_wp)*phi)
+                    ! sum_ypos = sum_ypos + x_spacing*sin(((ix*1.0_wp)-2.0_wp)*phi)
+                    mu_xyz(ixyz,1)= mu_0*(cos(((ix*1.0_wp)-2.0_wp)*phi))
+                    ! write(*,*) 'MUX', cos(((ix*1.0_wp)-2.0_wp)*phi)
+                    mu_xyz(ixyz,2)= mu_0*(sin(((ix*1.0_wp)-2.0_wp)*phi))
+                    mu_xyz(ixyz,3) = mu_0*(cos(theta))
+                end do
 
             end if 
         end subroutine
 
-        real(wp) function coupling(x1,y1,z1,x2,y2,z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)
+        real(wp) function coupling(x1,y1,z1,x2,y2,z2, mu_xyz,r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)
             integer(wp), intent(in) :: x1,y1,z1,x2,y2,z2
             integer(wp) :: d_x, d_y, d_z, i_xyz1, i_xyz2
             real(wp) :: dx,dy,dz
             real(wp), dimension(3) :: R, R_norm
-            real(wp), intent(in) :: mu_xyz(:,:)
+            real(wp), intent(in) :: mu_xyz(:,:), r_xyz(:,:)
             integer(wp), intent(in) :: lattice_index_arr(:,:,:)
             real(wp), intent(in) :: x_spacing,y_spacing,z_spacing
             real(wp) :: R_mag
@@ -68,10 +73,13 @@ module hamiltonian
             real(wp) :: pi, epsilon
             logical, intent(in) :: manual_coupling
             coupling  = 0.0_wp
+            i_xyz1 = lattice_index_arr(x1,y1,z1)
+            i_xyz2 = lattice_index_arr(x2,y2,z2)
 
-            d_x = abs(x2-x1)
-            d_y = abs(y2-y1)
-            d_z = abs(z2-z1)
+
+            d_x = abs(r_xyz(i_xyz2,1) - r_xyz(i_xyz1,1))
+            d_y = abs(r_xyz(i_xyz2,2) - r_xyz(i_xyz1,2))
+            d_z = abs(r_xyz(i_xyz2,3) - r_xyz(i_xyz1,3))
             ! if (manual_coupling .eq. .true.) then
             !     go to 78
             ! end if
@@ -99,8 +107,6 @@ module hamiltonian
             R(3) = dz
             R_mag = sqrt((dx**2)+(dy**2)+(dz**2))
             R_norm = (1/R_mag)*R
-            i_xyz1 = lattice_index_arr(x1,y1,z1)
-            i_xyz2 = lattice_index_arr(x2,y2,z2)
             dipole_dot_product = mu_xyz(i_xyz1,1)*mu_xyz(i_xyz2,1) + mu_xyz(i_xyz1,2)*mu_xyz(i_xyz2,2) + mu_xyz(i_xyz1,3)*mu_xyz(i_xyz2,3)
             mu1_dotR = mu_xyz(i_xyz1,1)*R_norm(1) + mu_xyz(i_xyz1,2)*R_norm(2) + mu_xyz(i_xyz1,2)*R_norm(2)
             mu2_dotR = mu_xyz(i_xyz2,1)*R_norm(1) + mu_xyz(i_xyz2,2)*R_norm(2) + mu_xyz(i_xyz2,2)*R_norm(2)
@@ -131,7 +137,7 @@ module hamiltonian
 
         end function
 
-        subroutine build1particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
+        subroutine build1particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,r_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
             implicit none
             real(wp), intent(inout) :: H(:,:)
             real(wp), intent(in) :: diagonal_disorder_offsets(:)
@@ -141,7 +147,7 @@ module hamiltonian
             integer(wp), intent(in) :: lattice_index_arr(:,:,:)
             logical, intent(in) :: manual_coupling
             real(wp), intent(in) :: pi,epsilon,w00
-            real(wp), intent(in) :: mu_xyz(:,:)
+            real(wp), intent(in) :: mu_xyz(:,:), r_xyz(:,:)
             real(wp), intent(in) :: fc_ground_to_neutral(0:,0:)
             integer(wp) :: empty = -1
             integer(wp) :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i ! x,y,z coords for vibronic exc on 1
@@ -163,7 +169,7 @@ module hamiltonian
                                             h_j = one_particle_index_arr(i_xyz2, vib_i2)
                                             if ( h_j == empty ) cycle
                                             if (h_j .eq. h_i) cycle
-                                            H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                            H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                             H(h_j, h_i) = H(h_i, h_j)
                                         end do
                                     end do
@@ -176,7 +182,7 @@ module hamiltonian
 
         end subroutine
 
-        subroutine build2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
+        subroutine build2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,r_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
             implicit none
             real(wp), intent(inout) :: H(:,:)
             real(wp), intent(in) :: diagonal_disorder_offsets(:)
@@ -186,7 +192,7 @@ module hamiltonian
             integer(wp), intent(in) :: lattice_index_arr(:,:,:)
             logical, intent(in) :: manual_coupling
             real(wp), intent(in) :: pi,epsilon,w00
-            real(wp), intent(in) :: mu_xyz(:,:)
+            real(wp), intent(in) :: mu_xyz(:,:), r_xyz(:,:)
             real(wp), intent(in) :: fc_ground_to_neutral(0:,0:)
             integer(wp) :: empty = -1
             integer(wp) :: i_x1, i_y1, i_z1, vib_i1, i_xyz1, h_i
@@ -217,7 +223,7 @@ module hamiltonian
                                                             if (h_j .eq. empty .or. h_j .eq. h_i) then
                                                                 continue
                                                             else
-                                                                H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)* &
+                                                                H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)* &
                                                                 fc_ground_to_neutral(0, vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                                                 H(h_j,h_i) = H(h_i,h_j)
                                                             end if
@@ -226,7 +232,7 @@ module hamiltonian
                                                                 do vib_i2v=1, max_vibs
                                                                     h_j = two_particle_index_arr(i_xyz2, vib_i2, i_xyz2v, vib_i2v)
                                                                     if ( h_j .eq. empty .or. h_j .eq. h_i ) cycle
-                                                                    H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v, vib_i1)*fc_ground_to_neutral(vib_i1v,vib_i2)
+                                                                    H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz,r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v, vib_i1)*fc_ground_to_neutral(vib_i1v,vib_i2)
                                                                     H(h_j, h_i) = H(h_i, h_j)
                                                                 end do
                                                             end if
@@ -245,7 +251,7 @@ module hamiltonian
         end subroutine
 
 
-        subroutine build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
+        subroutine build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,r_xyz,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
             implicit none
             real(wp), intent(inout) :: H(:,:)
             real(wp), intent(in) :: diagonal_disorder_offsets(:)
@@ -256,7 +262,7 @@ module hamiltonian
             integer(wp), intent(in) :: lattice_index_arr(:,:,:)
             logical, intent(in) :: manual_coupling
             real(wp), intent(in) :: pi,epsilon,w00
-            real(wp), intent(in) :: mu_xyz(:,:)
+            real(wp), intent(in) :: mu_xyz(:,:), r_xyz(:,:)
             real(wp), intent(in) :: fc_ground_to_neutral(0:,0:)
             integer(wp) :: empty = -1
             integer(wp) i_x1, i_y1, i_z1, i_xyz1, vib_i1, h_i ! coords of the vibronic exc in 1 in the one particle state
@@ -282,7 +288,7 @@ module hamiltonian
                                             do vib_i2v=1,max_vibs
                                                 h_j = two_particle_index_arr(i_xyz2,vib_i2,i_xyz2v,vib_i2v)
                                                 if (h_j .eq. empty) cycle
-                                                H(h_i,h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                                H(h_i,h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                                 H(h_j,h_i) = H(h_i,h_j)
                                             end do
                                         end do

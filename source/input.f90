@@ -58,8 +58,12 @@ module input
                         read(buffer, *, iostat=io_stat) manual_coupling
                     case ( 'NEAREST_NEIGHBOURS' )
                         read(buffer, *, iostat=io_stat) n_nearest_neighbour
-                    case ( 'TWIST_ANGLE' )
+                    case ( 'STACK_ANGLE' )
                         read(buffer, *, iostat=io_stat) phi
+                    case ( 'PRECESSION_ANGLE' )
+                        read(buffer, *, iostat=io_stat) theta
+                    case ( 'TWIST_ANGLE' )
+                        read(buffer, *, iostat=io_stat) twist_angle
                     case ( 'ONE_PARTICLE_STATES' )
                         read(buffer, *, iostat=io_stat) bool_one_particle_states
                     case ( 'TWO_PARTICLE_STATES' )
@@ -115,6 +119,7 @@ module input
         
         
             phi = pi*(phi/180.0_wp)
+            theta = pi*(theta/180.0_wp)
             mu_0 = mu_0/Debye
             k = w00/c
         end subroutine

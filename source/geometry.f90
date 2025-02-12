@@ -4,8 +4,8 @@ module geometry
     private
     public :: construct_geometry
     contains
-        subroutine construct_geometry(r_xyz,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,x_spacing,y_spacing,z_spacing,phi,theta,period_Jtwist,lattice_count,lattice_index_arr)
-            integer(wp), intent(in) :: GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz, period_Jtwist,lattice_count
+        subroutine construct_geometry(r_xyz,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,x_spacing,y_spacing,z_spacing,phi,theta,lattice_count,lattice_index_arr)
+            integer(wp), intent(in) :: GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,lattice_count
             real(wp), intent(in) :: phi, theta,x_spacing,y_spacing,z_spacing
             real(wp), allocatable, intent(inout) :: r_xyz(:,:)
             integer(wp), dimension(:,:,:), intent(in) :: lattice_index_arr

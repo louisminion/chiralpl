@@ -53,10 +53,13 @@ dfabs['Wavelength'] = (1/dfabs['Energy'])*1E7
 
 ax.plot(dfabs['Wavelength'],dfabs['ABSX'],color='blue',label='x-polarized')
 ax.plot(dfabs['Wavelength'],dfabs['ABSY'],color='blue',linestyle='dashed',label='y-polarized')
+ax.plot(dfabs['Wavelength'],dfabs['ABSZ'],color='blue',linestyle='dotted',label='z-polarized')
 
 ax2=ax.twinx()
 ax2.plot(df['Wavelength'],df['PLX'],color='red')
 ax2.plot(df['Wavelength'],df['PLY'],color='red',linestyle='dashed')
+ax2.plot(df['Wavelength'],df['PLZ'],color='red',linestyle='dotted')
+
 ax.set_xlim(min(dfabs['Wavelength']),dfabs['Wavelength'].max()+(dfabs['Wavelength'].max()-dfabs['Wavelength'].min()))
 ax.set_xlabel('Wavelength (nm)')
 ax.set_ylabel('Absorption')
@@ -66,6 +69,16 @@ plt.tight_layout()
 plt.savefig(f+'_plabs.png')
 plt.show()
 
+
+
+fig,ax = plt.subplots()
+
+PLAVG = np.sqrt(df['PLX']**2+df['PLY']**2+df['PLZ']**2)
+ax.plot(df['Wavelength'],PLAVG,color='red')
+# ax.plot(df['Wavelength'],df['PLZ'],color='blue')
+ax.set_xlim(min(dfabs['Wavelength']),dfabs['Wavelength'].max()+(dfabs['Wavelength'].max()-dfabs['Wavelength'].min()))
+plt.tight_layout()
+plt.show()
 dipolef = f + '_dipoles.dat'
 dipoles = np.loadtxt(dipolef,delimiter=',',skiprows=1)
 with open(dipolef) as file:
@@ -113,11 +126,13 @@ print(df.columns)
 fig,ax = plt.subplots()
 
 df['Wavelength'] = (1/df['Energy'])*1E7
-ax.plot(df['Energy'],df['CD'])
-ax.set_xlabel('Wavenumber (cm$^{-1}$)')
+# ax.plot(df['Energy'],df['CD'])
+# ax.set_xlabel('Wavenumber (cm$^{-1}$)')
+ax.plot(df['Wavelength'],df['CD'])
+ax.set_xlabel('Wavelength (nm)')
 ax.set_ylabel('CD')
 plt.savefig(f+'_cd.png')
-
+plt.show()
 
 cpl_file = f + '_cpl.csv'
 

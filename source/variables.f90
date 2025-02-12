@@ -27,7 +27,6 @@ module variables
     logical :: manual_coupling = .true. ! if true, then doesn't calculate JCouplings individually, just uses inputs JCoulx,JCouly,JCoulz
     integer(wp) :: max_vibs
     integer(wp) :: n_nearest_neighbour = 1
-    integer(wp) :: period_Jtwist = 5 ! number of chromophores for full turn in type 1 aggregates
     real(wp) :: lambda_neutral  = 1.0_wp
     real(wp) :: w00 = 14000.0_wp
     real(wp) :: hw = 1400.0_wp
@@ -43,6 +42,7 @@ module variables
     real(wp) :: lw  = 250.0_wp
     real(wp) :: phi = 0.0_wp ! twist angle for chiral aggregates
     real(wp) :: theta = 0.0_wp ! the angle of precession of dipoles in helical twisted straight chains (type 1)
+    real(wp) :: twist_angle = 0.0_wp ! angle between successive chromophores in successively twisted chains
     real(wp) :: x_spacing = 1.0_wp
     real(wp) :: y_spacing = 1.0_wp
     real(wp) :: z_spacing = 1.0_wp ! in case stacking is further spaced than spacing along polymer

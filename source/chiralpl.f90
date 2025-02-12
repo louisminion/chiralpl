@@ -30,7 +30,7 @@ program chiralpl
     ! These can be done using global variables as don't need them in parallel environment
     call calcFranckCondonTables()
     !implement accurate geometry
-    call construct_geometry(r_xyz,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,x_spacing,y_spacing,z_spacing,phi,theta,period_Jtwist,lattice_count,lattice_index_arr)
+    call construct_geometry(r_xyz,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,x_spacing,y_spacing,z_spacing,phi,theta,lattice_count,lattice_index_arr)
     open(unit=90, file='RARR')
     do x = 1, size(r_xyz,dim=1)
         write(90, '(*(F12.8 : ", "))') r_xyz(x, 1),r_xyz(x, 2),r_xyz(x, 3)
@@ -103,11 +103,11 @@ program chiralpl
         ! write(*,*) diagonal_disorder_offsets
         ! Build hamiltonian
         ! Lots of arguments! But this is mostly so we can avoid any global variables
-        if ( bool_one_particle_states ) call build1particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx &
+        if ( bool_one_particle_states ) call build1particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,r_xyz,fc_ground_to_neutral,lattice_dimx &
         ,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
-        if ( bool_two_particle_states ) call build2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,fc_ground_to_neutral,lattice_dimx &
+        if ( bool_two_particle_states ) call build2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz,r_xyz,fc_ground_to_neutral,lattice_dimx &
         ,lattice_dimy,lattice_dimz,max_vibs,two_particle_index_arr,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
-        if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz &
+        if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz, r_xyz &
         ,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing &
         ,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
 
