@@ -125,15 +125,14 @@ program chiralpl
         ,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
 
         ! Hamiltonian diagonalization
-        ! write(*,*) 'H', H
+        ! LOOK INTO MAKING H COMPLEX SUCH THAT DEFECTIVE REAL MATRICES OF H ARE NO LONGER SO
+        ! CHECK DIAGONIZABILITY AS WELL
         call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
         thread = omp_get_thread_num()
-        ! write(*,*) thread
         call absorption(abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,general_counter, lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr &
         ,one_particle_index_arr,mu_xyz,fc_ground_to_neutral,H)
         call pl(xpl_osc,ypl_osc,zpl_osc,general_counter,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr,one_particle_index_arr,two_particle_index_arr &
         ,mu_xyz,fc_ground_to_neutral,H, bool_two_particle_states)
-
         do vt=0,max_vibs
             call calc_vibpl_spec_per_config(vt,spec_steps,w00,lw,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz, EVAL,general_counter, temp,kB,pi)
             pl_specx_by_v_perconfig(:,vt) = pl_specx 
@@ -195,7 +194,6 @@ program chiralpl
         pl_specz = pl_specz + pl_specz_by_v(:,vt)
 
     end do
-    write(700,*) pl_specx
     call write_pl(pl_specx,pl_specy,pl_specz,INPUT_NAME,spec_steps, hw, max_vibs,w00,lw)
     call write_abs(abs_specx_configavg,abs_specy_configavg,abs_specz_configavg,w00,hw,max_vibs,spec_steps,INPUT_NAME)
     call write_cd(cd_spec_avg,w00,hw,max_vibs,spec_steps,INPUT_NAME)
