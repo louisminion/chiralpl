@@ -68,6 +68,8 @@ module input
                         read(buffer, *, iostat=io_stat) bool_one_particle_states
                     case ( 'TWO_PARTICLE_STATES' )
                         read(buffer, *, iostat=io_stat) bool_two_particle_states
+                    case ( 'CHARGE_TRANSFER_STATES' )
+                        read(buffer, *, iostat=io_stat) bool_charge_transfer_states
                     case ( 'MAX_VIB')
                         read(buffer, *, iostat=io_stat) max_vibs
                     case ( 'HUANG_RHYS_NEUTRAL')
@@ -120,6 +122,7 @@ module input
         
             phi = pi*(phi/180.0_wp)
             theta = pi*(theta/180.0_wp)
+            twist_angle = pi*(twist_angle/180.0_wp)
             mu_0 = mu_0/Debye
             k = w00/c
         end subroutine

@@ -2,7 +2,7 @@ module index
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     implicit none
     private
-    public :: LatticeIndex, oneParticleIndex, twoParticleIndex
+    public :: LatticeIndex, oneParticleIndex, twoParticleIndex, chargeTransferIndex
     contains
         subroutine LatticeIndex(lattice_dimx, lattice_dimy, lattice_dimz, lattice_index_arr, lattice_count, general_counter, empty)
             implicit none
@@ -28,6 +28,7 @@ module index
         
         
         subroutine oneParticleIndex(one_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz, max_vibs,one_particle_counter, empty, general_counter, lattice_index_arr)
+            ! |n,ṽ>
             implicit none
             integer(wp), dimension(:,0:) :: one_particle_index_arr
             integer(wp), dimension(:,:,:), intent(in) :: lattice_index_arr
@@ -53,6 +54,7 @@ module index
         end subroutine
         
         subroutine twoParticleIndex(two_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_counter,empty, general_counter,lattice_index_arr)
+            ! |n,ṽ;n',v'>
             ! index two-particle states; two particle states consist of a vibronic excitation on one site and a vibrational excitation on another
             ! therefore each combination of site with vibronic exc and vibrational exc on other site need an index number
             implicit none
@@ -90,8 +92,53 @@ module index
                 end do
             end do
             print*, two_particle_counter, 'Two particle states'
-            print*, general_counter, 'Total basis states'
-            print*, '*****************************************'                 
+            ! print*, general_counter, 'Total basis states'
+            ! print*, '*****************************************'                 
+        end subroutine
+
+
+
+        subroutine chargeTransferIndex(chargetransfer_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,chargetransfer_counter,empty, general_counter,lattice_index_arr)
+            ! |n,v+;n+s,v->
+            !LM index charge transfer states consisting of a vibrationally excited cation and an anion.
+            !LM charge transfer states are tricky. Spano and Hestand use the index s for one-dimensional aggregates.
+            !LM I think I can still use s when I unravel the whole aggregate into a 1d array with lattice_index_arr
+
+            implicit none
+            integer(wp) i_xc, i_yc, i_zc, i_xyzc, vibc ! indices for cations/ vibrations
+            integer(wp) i_xa, i_ya, i_za, i_xyza, viba ! indices for anions/ vibrations
+            integer(wp), intent(in) :: max_vibs, lattice_dimx, lattice_dimy, lattice_dimz, empty
+            integer(wp), dimension(:,:,:), intent(in) :: lattice_index_arr
+            integer(wp), intent(inout) :: chargetransfer_index_arr(:,0:,:,0:)
+            integer(wp), intent(inout) :: chargetransfer_counter
+            integer, intent(inout) :: general_counter
+            chargetransfer_index_arr = empty
+            do i_xc=1,lattice_dimx
+                do i_yc=1,lattice_dimy
+                    do i_zc=1,lattice_dimz
+                        do vibc=0,max_vibs ! for each cation state, loop over all other lattice sites for anion sites
+                            do i_xa=1,lattice_dimx
+                                do i_ya=1,lattice_dimy
+                                    do i_za=1,lattice_dimz
+                                        do viba=0,max_vibs ! excited vibrational states in ground electronic states cannot be v=0
+                                            i_xyzc= lattice_index_arr(i_xc,i_yc,i_zc) ! n
+                                            i_xyza=lattice_index_arr(i_xa,i_ya,i_za) ! n+s
+                                            if ( i_xyzc .eq. i_xyza ) cycle ! |s|>=1 (s=0 would be Frenkel excitons)
+                                            if (viba + vibc > max_vibs) cycle 
+                                            general_counter = general_counter + 1
+                                            chargetransfer_counter = chargetransfer_counter + 1
+                                            chargetransfer_index_arr(i_xyzc, vibc, i_xyza, viba) = general_counter
+                                        end do
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+            print*, chargetransfer_counter, 'Charge-transfer states'
+            ! print*, general_counter, 'Total basis states'
+            ! print*, '*****************************************'      
         end subroutine
 
 end module

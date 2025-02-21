@@ -21,6 +21,7 @@ module variables
     integer :: num_threads = 1
     logical :: bool_one_particle_states = .true.
     logical :: bool_two_particle_states = .true.
+    logical :: bool_charge_transfer_states = .false.
     logical :: H_out = .false.
     logical :: save_evals = .false.
     logical :: save_evecs = .false.
@@ -57,12 +58,13 @@ module variables
     integer(wp) :: lattice_count = 0
     integer(wp) :: one_particle_counter = 0
     integer(wp) :: two_particle_counter = 0
-
+    integer(wp) :: chargetransfer_counter = 0
 
     ! index arrays
     integer(wp), allocatable :: lattice_index_arr(:,:,:)
     integer(wp), allocatable :: one_particle_index_arr(:,:)
     integer(wp), allocatable :: two_particle_index_arr(:,:,:,:)
+    integer(wp), allocatable :: chargetransfer_index_arr(:,:,:,:)
 
     ! franck-condon table
     real(wp), allocatable :: fc_ground_to_neutral(:,:)
@@ -72,6 +74,7 @@ module variables
     ! array of position vectors
     real(wp), allocatable :: r_xyz(:,:)
 
+    integer(wp), allocatable :: bonding_matrix(:,:)
     ! hamiltonian, H
     ! The hamiltonian is a 2d array
     real(wp), allocatable :: H(:,:)

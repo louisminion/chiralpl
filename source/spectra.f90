@@ -745,7 +745,7 @@ module spectra
                             r_n(3) = nz*z_spacing
                             do mx=1,lattice_dimx
                                 do my=1,lattice_dimy
-                                    do mz=1,lattice_dimy
+                                    do mz=1,lattice_dimz
                                         m = lattice_index_arr(mx,my,mz)
                                         mu_m = mu_xyz(m,:)
                                         crossproduct = cross(mu_n,mu_m)
@@ -844,6 +844,193 @@ module spectra
             crs(3) = a(1)*b(2) - a(2)*b(1)
             return
         end function
+
+
+        ! subroutine cpl()
+        !     implicit none
+        !     integer(wp) i_x, i_y, i_z, n, vib ! indices for vibronic excitations
+        !     integer(wp) i_x2,i_y2,i_z2,m,vib2, n1 ! indices for ground state vibrational excitation (for two particle states)
+        !     integer(wp) i_x3,i_y3,i_z3,n2,vib3 ! indices for third iteration
+        !     integer(wp) :: h_i, j
+        !     real(wp),dimension(3) :: mu_n, mu_m ! dipole moment vectors for m and n 
+        !     real(wp),dimension(3) :: r_m, r_n, rdiff ! position vectors for m and n, and between them
+        !     real(wp) :: c_nv, c_mv
+        !     real(wp) :: c_nvmv, c_mvnv
+        !     real(wp) :: R_00, R_01
+        !     real(wp), dimension(3) :: crossproduct
+        !     write(*,*) 'CPL calculation'
+        !     r_m = 0.0_wp
+        !     r_n = 0.0_wp
+        !     rdiff = 0.0_wp
+        !     R_00 = 0.0_wp
+        !     do i_x=1,lattice_dimx  ! sum over all n,v-tilde
+        !         do i_y=1,lattice_dimy
+        !             do i_z=1,lattice_dimz
+        !                 n = lattice_index_arr(i_x,i_y,i_z)
+        !                 r_n(1) = i_x*x_spacing
+        !                 r_n(2) = i_y*y_spacing
+        !                 r_n(3) = i_z*z_spacing
+        !                 do i_x2=1,lattice_dimx
+        !                     do i_y2=1,lattice_dimy
+        !                         do i_z2=1,lattice_dimz
+        !                             m = lattice_index_arr(i_x2,i_y2,i_z2)
+        !                             if (n .eq. m) cycle
+        !                             !<psi(em)|mu(n)|g,0> X <psi(em)|mu(m)|g,0>.(rm-rn)
+        !                             mu_m = mu_xyz(m,:)
+        !                             mu_n = mu_xyz(n,:)
+        !                             crossproduct = cross(mu_n,mu_m)
+        !                             r_m(1) = i_x2*x_spacing
+        !                             r_m(2) = i_y2*y_spacing
+        !                             r_m(3) = i_z2*z_spacing
+        !                             rdiff = r_n-r_m
+        !                             do vib=0,max_vibs
+        !                                 do vib2=0,max_vibs
+        !                                     h_i = one_particle_index_arr( n, vib )
+        !                                     c_nv = H(h_i,1)
+        !                                     h_i = one_particle_index_arr( m, vib2 )
+        !                                     c_mv = H(h_i,1)
+        !                                     R_00 = R_00 + c_nv*c_mv*fc_ground_to_neutral(0,vib)*fc_ground_to_neutral(vib2,0)*dot_product(crossproduct,rdiff)  
+        !                                 end do
+
+        !                             end do
+        !                         end do
+        !                     end do
+        !                 end do
+        !             end do
+        !         end do
+        !     end do
+        !     R_00 = R_00*(k)/(mu_0**2)
+        !     write(*,*) 'R_00', R_00
+        !     rot_strengths(1) = R_00
+        !     R_01 = 0.0_wp
+        !     do i_x=1,lattice_dimx
+        !         do i_y=1,lattice_dimy
+        !             do i_z=1,lattice_dimz
+        !                 n = lattice_index_arr(i_x,i_y,i_z)
+        !                 r_n(1) = i_x*x_spacing
+        !                 r_n(2) = i_y*y_spacing
+        !                 r_n(3) = i_z*z_spacing
+        !                 do i_x2=1,lattice_dimx
+        !                     do i_y2=1,lattice_dimy
+        !                         do i_z2=1,lattice_dimz
+        !                             m = lattice_index_arr(i_x2,i_y2,i_z2)
+        !                             if (n .eq. m) cycle
+        !                             mu_m = mu_xyz(m,:)
+        !                             mu_n = mu_xyz(n,:)
+        !                             crossproduct = cross(mu_n,mu_m)
+        !                             r_m(1) = i_x2*x_spacing
+        !                             r_m(2) = i_y2*y_spacing
+        !                             r_m(3) = i_z2*z_spacing
+        !                             rdiff = r_n-r_m
+        !                             do vib=0,max_vibs
+        !                                 do vib2=0,max_vibs
+        !                                     h_i = one_particle_index_arr( n, vib )
+        !                                     c_nv = H(h_i,1)
+        !                                     h_i = two_particle_index_arr( m, vib2 ,n,1)
+        !                                     if (h_i .eq. empty) cycle
+        !                                     c_nvmv = H(h_i,1)
+        !                                     R_01 = R_01 + fc_ground_to_neutral(vib,1)*fc_ground_to_neutral(0,vib2)*c_nv*c_nvmv*dot_product(crossproduct,rdiff)
+        !                                 end do
+        !                             end do
+
+        !                         end do
+        !                     end do
+        !                 end do
+        !             end do
+        !         end do
+        !     end do
+        !     do i_x=1,lattice_dimx
+        !         do i_y=1,lattice_dimy
+        !             do i_z=1,lattice_dimz
+        !                 n = lattice_index_arr(i_x,i_y,i_z)
+        !                 do i_x2=1,lattice_dimx
+        !                     do i_y2=1,lattice_dimy
+        !                         do i_z2=1,lattice_dimz
+        !                             n1 = lattice_index_arr(i_x2,i_y2,i_z2)
+        !                             r_n(1) = i_x2*x_spacing
+        !                             r_n(2) = i_y2*y_spacing
+        !                             r_n(3) = i_z2*z_spacing
+        !                             do i_x3=1,lattice_dimx
+        !                                 do i_y3=1,lattice_dimy
+        !                                     do i_z3=1,lattice_dimz
+        !                                         n2 = lattice_index_arr(i_x3,i_y3,i_z3)
+        !                                         if (n1 .eq. n2) cycle
+        !                                         mu_m = mu_xyz(n2,:)
+        !                                         mu_n = mu_xyz(n1,:)
+        !                                         crossproduct = cross(mu_n,mu_m)
+        !                                         r_m(1) = i_x3*x_spacing
+        !                                         r_m(2) = i_y3*y_spacing
+        !                                         r_m(3) = i_z3*z_spacing
+        !                                         rdiff = r_n-r_m
+        !                                         do vib2=0,max_vibs
+        !                                             do vib3=0,max_vibs
+        !                                                 h_i = two_particle_index_arr(n1,vib2,n,1)
+        !                                                 if (h_i .eq. empty) cycle
+        !                                                 c_nv = H(h_i,1)
+        !                                                 h_i = two_particle_index_arr(n2,vib3,n,1)
+        !                                                 if (h_i .eq. empty) cycle
+        !                                                 c_nvmv = H(h_i,1)
+        !                                                 R_01 = R_01 + fc_ground_to_neutral(vib2,0)*fc_ground_to_neutral(vib3,0)*c_nv*c_nvmv*dot_product(crossproduct,rdiff)
+        !                                             end do
+        !                                         end do
+        !                                     end do
+        !                                 end do
+        !                             end do
+        !                         end do
+        !                     end do
+        !                 end do
+        !             end do
+        !         end do
+        !     end do
+        !     R_01 = R_01*(k)/(mu_0**2)
+
+        !     write(*,*) 'R_01', R_01
+        !     rot_strengths(2) = R_01
+
+
+        !     ! Add 0-2,0-3,0-4 peaks
+
+        !     ! do j=1,2
+        !     !     (1/(mu_0**2))*(xpl_osc(j,1) + ypl_osc(j,1))*rot_strengths(j) ! pl osc strength
+        !     ! end do
+
+        ! end subroutine
+
+        ! subroutine calc_cpl_spec()
+        !     implicit none
+        !     integer(wp) :: spec_point, vt, j
+        !     real(wp) :: spectrum_start, spectrum_end, energy
+        !     real(wp) :: lineshape, sum_I, sum_R
+        !     real(wp) :: exciton_energy, boltzfactor, boltzsum
+        !     real,dimension(spec_steps) :: smI, smR
+        !     allocate(cpl_spec(spec_steps))
+        !     cpl_spec = 0.0_wp
+        !     spectrum_start = 0.0_wp
+        !     spectrum_end = w00+20.0_wp*lw
+        !     exciton_energy = EVAL(1)
+
+        !     do spec_point=1,spec_steps
+        !         energy = spectrum_start+ ((spectrum_end-spectrum_start)*(1.0_wp*spec_point))/(spec_steps*1.0_wp)
+        !         sum_I = 0.0_wp
+        !         sum_R = 0.0_wp
+        !         do vt=0,1
+        !             ! (1/(mu_0**2))*(xpl_osc(j,1) + ypl_osc(j,1))
+        !             lineshape = dexp(-(energy - exciton_energy + (vt*1.0_wp))**2/(2.0_wp*(lw**2)))/dsqrt(2.0_wp*lw**2*pi)
+        !             sum_I = sum_I + (lineshape*(xpl_osc((vt+1),1)+ypl_osc((vt+1),1))*((exciton_energy-(vt*1.0_wp))**3))*(1/(mu_0**2))
+        !             sum_R = sum_R + (lineshape*(rot_strengths((vt+1)))*((exciton_energy-(vt*1.0_wp))**3))
+        !         end do
+        !         smR(spec_point) = sum_R
+        !         smI(spec_point) = sum_I
+        !         if (sum_I .eq. 0.0_wp) then
+        !             cpl_spec(spec_point) = 0.0_wp
+        !         else
+        !             cpl_spec(spec_point) = sum_R/sum_I
+        !         end if
+        !     end do
+        !     write(34,*) smI
+        !     write(56,*) smR
+
+        ! end subroutine
 
 
 end module

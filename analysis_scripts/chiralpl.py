@@ -35,7 +35,9 @@ if not os.path.exists(f'simulations/{name}'):
     os.mkdir(f'simulations/{name}')
 
 shutil.copy(args.input_file, f'simulations/{name}/{name}.inp')
-subprocess.run(["powershell",f"./../bin/chiralpl.exe {args.input_file} | tee {name}.out"]) 
+# subprocess.run(["powershell",f"./../bin/chiralpl.exe {args.input_file} | tee {name}.out"]) 
+subprocess.run(["powershell",f"./chiralpl.exe {args.input_file} | tee {name}.out"]) 
+
 if args.verbose:
     print('Cleaning up files')
 shutil.move(f"{name}.out",f"simulations/{name}/{name}.out")
@@ -60,29 +62,29 @@ pl_file = f + '_pl.csv'
 abs_file = f + '_abs.csv'
 with open(pl_file) as file:
     lines = [line.rstrip() for line in file]
-exciton_energy = float(lines[1].split()[-1])
-hw = float(lines[2].split()[-1])
-max_vibs = int(lines[3].split()[-1])
-df= pd.read_csv(pl_file,skiprows=4)
+# exciton_energy = float(lines[1].split()[-1])
+hw = float(lines[1].split()[-1])
+max_vibs = int(lines[2].split()[-1])
+df= pd.read_csv(pl_file,skiprows=3)
 df = df.rename(columns=lambda x: x.strip())
 fig,[[ax1,ax2],[ax3,ax4]] = plt.subplots(ncols=2,nrows=2,figsize=(10,10))
-energies = []
-for i in range(0,max_vibs+1):
-    energies.append(exciton_energy-i*hw)
+# energies = []
+# for i in range(0,max_vibs+1):
+#     energies.append(exciton_energy-i*hw)
 ax1.plot(df['Energy'],df['PLX'])
-for i,e in enumerate(energies):
-    indx = min(range(len(df['Energy'])), key=lambda i: abs(df['Energy'][i]-e))
-    height = df['PLX'][indx]
-    ax1.vlines(e,ymax=height,ymin=0, ls='dashed')
-    ax1.text(e,height+(max(df['PLX'])/40),f'0-{i}',horizontalalignment='center', verticalalignment='center')
+# for i,e in enumerate(energies):
+#     indx = min(range(len(df['Energy'])), key=lambda i: abs(df['Energy'][i]-e))
+#     height = df['PLX'][indx]
+#     ax1.vlines(e,ymax=height,ymin=0, ls='dashed')
+#     ax1.text(e,height+(max(df['PLX'])/40),f'0-{i}',horizontalalignment='center', verticalalignment='center')
 ax1.set_xlabel('Wavenumber (cm$^{-1}$)')
 ax1.set_ylabel('PL Intensity (a.u.)')
 ax2.plot(df['Energy'],df['PLY'])
-for i,e in enumerate(energies):
-    indx = min(range(len(df['Energy'])), key=lambda i: abs(df['Energy'][i]-e))
-    height = df['PLY'][indx]
-    ax2.vlines(e,ymax=height,ymin=0, ls='dashed')
-    ax2.text(e,height+(max(df['PLY'])/40),f'0-{i}',horizontalalignment='center', verticalalignment='center')
+# for i,e in enumerate(energies):
+#     indx = min(range(len(df['Energy'])), key=lambda i: abs(df['Energy'][i]-e))
+#     height = df['PLY'][indx]
+#     ax2.vlines(e,ymax=height,ymin=0, ls='dashed')
+#     ax2.text(e,height+(max(df['PLY'])/40),f'0-{i}',horizontalalignment='center', verticalalignment='center')
 ax2.set_xlabel('Wavenumber (cm$^{-1}$)')
 ax2.set_ylabel('PL Intensity (a.u.)')
 

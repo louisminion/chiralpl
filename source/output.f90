@@ -2,7 +2,7 @@ module output
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     implicit none
     private
-    public :: print_line, printOutputHeader, writeDipoleArray,checkRAM
+    public :: print_line, printOutputHeader, writeDipoleArray,writePositionArray, checkRAM
     contains
 
         subroutine print_line(string, INPUT_NAME)
@@ -54,6 +54,25 @@ module output
         write(33,'(A,I0,A,I0,A,I0)') 'LATTICE DIMENSIONS (X,Y,Z) ',lattice_dimx,',',lattice_dimy,',',lattice_dimz
         do j = 1, size(mu_xyz,dim=1)
             write(33, '(*(F12.8 : ", "))') mu_xyz(j, 1),mu_xyz(j, 2),mu_xyz(j, 3)
+        end do
+        close(33)
+
+    end subroutine
+
+    subroutine writePositionArray(INPUT_NAME,lattice_dimx,lattice_dimy,lattice_dimz,r_xyz)
+        implicit none
+        character(256) :: file_name
+        character(*) :: INPUT_NAME
+        integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz
+        real(wp), intent(in) :: r_xyz(:,:)
+        integer(wp) :: j
+
+        file_name = trim(INPUT_NAME) // trim('_positions.dat')
+        file_name = trim(file_name)
+        open(unit=33, file=file_name)
+        write(33,'(A,I0,A,I0,A,I0)') 'LATTICE DIMENSIONS (X,Y,Z) ',lattice_dimx,',',lattice_dimy,',',lattice_dimz
+        do j = 1, size(r_xyz,dim=1)
+            write(33, '(*(F12.8 : ", "))') r_xyz(j, 1),r_xyz(j, 2),r_xyz(j, 3)
         end do
         close(33)
 

@@ -22,20 +22,33 @@ program chiralpl
         allocate( one_particle_index_arr( lattice_count, 0:max_vibs) )
         call oneParticleIndex(one_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz, max_vibs,one_particle_counter, empty, general_counter, lattice_index_arr)
     end if
-        if ( bool_two_particle_states ) then
+    if ( bool_two_particle_states ) then
         allocate( two_particle_index_arr(lattice_count, 0:max_vibs, lattice_count, 1:max_vibs))
         call twoParticleIndex(two_particle_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_counter,empty, general_counter,lattice_index_arr)
     end if
+    if ( bool_charge_transfer_states ) then
+        allocate( chargetransfer_index_arr(lattice_count, 0:max_vibs, lattice_count, 0:max_vibs))
+        call chargeTransferIndex(chargetransfer_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,chargetransfer_counter,empty, general_counter,lattice_index_arr)
+    end if
+    print*, general_counter, 'Total basis states'
+    print*, '*****************************************'   
     print*, 'Precalculating vibrational overlap integrals'
     ! These can be done using global variables as don't need them in parallel environment
     call calcFranckCondonTables()
     !implement accurate geometry
     call construct_geometry(r_xyz,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,x_spacing,y_spacing,z_spacing,phi,theta,lattice_count,lattice_index_arr)
-    open(unit=90, file='RARR')
-    do x = 1, size(r_xyz,dim=1)
-        write(90, '(*(F12.8 : ", "))') r_xyz(x, 1),r_xyz(x, 2),r_xyz(x, 3)
-    end do
-    close(90)
+    call construct_bonding_matrix(bonding_matrix,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,lattice_count,lattice_index_arr)
+    ! open(unit=90, file='RARR')
+    ! do x = 1, size(bonding_matrix,dim=1)
+    !     write(90, '(*(I0 : ", "))') bonding_matrix(x,:)
+    ! end do
+    ! close(90)
+    call writePositionArray(INPUT_NAME,lattice_dimx,lattice_dimy,lattice_dimz,r_xyz)
+    ! open(unit=90, file='RARR')
+    ! do x = 1, size(r_xyz,dim=1)
+    !     write(90, '(*(F12.8 : ", "))') r_xyz(x, 1),r_xyz(x, 2),r_xyz(x, 3)
+    ! end do
+    ! close(90)
     call dipole_moment()
     call writeDipoleArray(INPUT_NAME,lattice_dimx,lattice_dimy,lattice_dimz,mu_xyz)
 
@@ -128,7 +141,6 @@ program chiralpl
             pl_specz_by_v_perconfig(:,vt) = pl_specz 
         end do
         call calc_abs_spec(abs_specx,abs_specy,abs_specz, EVAL,w00,lw,pi, abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,lattice_count,spec_steps,general_counter)
-        
         call cd(cd_rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,one_particle_index_arr,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral,k,mu_0,x_spacing,y_spacing,z_spacing)
         call calc_cd_spec(cd_rot_strengths, cd_spec, EVAL,w00,lw,pi,lattice_count,spec_steps,general_counter)
         ! DO ADDING AT THE END OF THE LOOP SO WAITING AT A MINIMUM
@@ -183,6 +195,7 @@ program chiralpl
         pl_specz = pl_specz + pl_specz_by_v(:,vt)
 
     end do
+    write(700,*) pl_specx
     call write_pl(pl_specx,pl_specy,pl_specz,INPUT_NAME,spec_steps, hw, max_vibs,w00,lw)
     call write_abs(abs_specx_configavg,abs_specy_configavg,abs_specz_configavg,w00,hw,max_vibs,spec_steps,INPUT_NAME)
     call write_cd(cd_spec_avg,w00,hw,max_vibs,spec_steps,INPUT_NAME)

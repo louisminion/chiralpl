@@ -2,7 +2,7 @@ module geometry
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     implicit none
     private
-    public :: construct_geometry
+    public :: construct_geometry, construct_bonding_matrix
     contains
         subroutine construct_geometry(r_xyz,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,x_spacing,y_spacing,z_spacing,phi,theta,lattice_count,lattice_index_arr)
             integer(wp), intent(in) :: GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,lattice_count
@@ -17,7 +17,7 @@ module geometry
 
             midpointx = (lattice_dimx*1.0_wp+1.0_wp)/2.0_wp
             midpointy = (lattice_dimy*1.0_wp+1.0_wp)/2.0_wp
-            write(*,*) midpointx, 'GHHH'
+            ! write(*,*) midpointx, 'GHHH'
             ! if (lattice_dimy .eq. 1) then
             !     midpointy=0
             ! end if
@@ -59,5 +59,62 @@ module geometry
                 end do
 
             end if 
+        end subroutine
+
+        subroutine construct_bonding_matrix(bonding_matrix,GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,lattice_count,lattice_index_arr)
+            ! The bonding matrix tells us which sites are bonded together by having a 1 in the matrix, versus which are non-bonded (having a 0)
+            ! Used to assign different values of the transfer integrals t_e and t_h depending on whether sites are bonded.
+            integer(wp), intent(in) :: GEOMETRY_TYPE,lattice_dimx,lattice_dimy,lattice_dimz,lattice_count
+            integer(wp), allocatable, intent(inout) :: bonding_matrix(:,:)
+            integer(wp), dimension(:,:,:), intent(in) :: lattice_index_arr
+            integer(wp) :: ix,iy,iz,ixyz   
+            integer(wp) :: ix1,iy1,iz1,ixyz1         
+            allocate(bonding_matrix(lattice_count,lattice_count))
+            bonding_matrix = 0
+            if (GEOMETRY_TYPE .eq. 0 .or. GEOMETRY_TYPE .eq. 1) then
+                do ix=1,lattice_dimx
+                    do iy=1,lattice_dimy
+                        do iz=1,lattice_dimz
+                            ixyz = lattice_index_arr(ix,iy,iz)
+                            do ix1=1,lattice_dimx
+                                do iy1=1,lattice_dimy
+                                    do iz1=1,lattice_dimz
+                                        ixyz1 = lattice_index_arr(ix1,iy1,iz1)
+                                        if (iz .eq. iz1) then
+                                            if (abs(ix-ix1) .eq. 1) then
+                                                bonding_matrix(ixyz,ixyz1) = 1
+                                            end if
+                                        else
+                                            cycle
+                                            
+                                        end if
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            else if (GEOMETRY_TYPE .eq. 2) then
+                do ix=1,lattice_dimx
+                    do iy=1,lattice_dimy
+                        do iz=1,lattice_dimz
+                            ixyz = lattice_index_arr(ix,iy,iz)
+                            do ix1=1,lattice_dimx
+                                do iy1=1,lattice_dimy
+                                    do iz1=1,lattice_dimz
+                                        ixyz1 = lattice_index_arr(ix1,iy1,iz1)
+                                        if (abs(ix-ix1) .eq. 1) then
+                                            ! For coiled helices we are only dealing with one of them so x-1 and x+1 are bonded
+                                            bonding_matrix(ixyz,ixyz1) = 1
+                                        else
+                                            cycle
+                                        end if
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end if
         end subroutine
 end module

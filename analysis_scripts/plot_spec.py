@@ -79,43 +79,90 @@ ax.plot(df['Wavelength'],PLAVG,color='red')
 ax.set_xlim(min(dfabs['Wavelength']),dfabs['Wavelength'].max()+(dfabs['Wavelength'].max()-dfabs['Wavelength'].min()))
 plt.tight_layout()
 plt.show()
-dipolef = f + '_dipoles.dat'
-dipoles = np.loadtxt(dipolef,delimiter=',',skiprows=1)
-with open(dipolef) as file:
-    lines = [line.rstrip() for line in file]
-latticex=int(lines[0].split()[-1].split(',')[0])
-latticey=int(lines[0].split()[-1].split(',')[1])
-latticez=int(lines[0].split()[-1].split(',')[2])
-lattice_index_arr = np.zeros((latticex,latticey,latticez))
-counter = 0
-for i in range(0,latticex):
-    for j in range(0,latticey):
-        for k in range(0,latticez):
-            lattice_index_arr[i,j,k]=counter
-            counter+=1
-x = []
-y = []
-z = []
-u= []
-v = []
-w = []
-for i in range(0,latticex):
-    for j in range(0,latticey):
-        for k in range(0,latticez):
-            x.append(i)
-            y.append(j)
-            z.append(k)
-            u.append(dipoles[int(lattice_index_arr[i,j,k])][0])
-            v.append(dipoles[int(lattice_index_arr[i,j,k])][1])
-            w.append(dipoles[int(lattice_index_arr[i,j,k])][2])
-ax = plt.figure().add_subplot(projection='3d')
-ax.quiver(x, y, z, u, v, w, length=0.5, normalize=True,pivot='middle')
-ax.set_xlim(-1,max(x)+1)
-ax.set_ylim(-1,max(y)+1)
-ax.set_zlim(-1,max(z)+1)
-plt.savefig(f+'_dipoles.png')
 
+
+
+
+
+import numpy as np
+dipolef = f + '_dipoles.dat'
+posf = f+'_positions.dat'
+posarr = np.loadtxt(posf,delimiter=',',skiprows=1)
+
+x=posarr[:,0]
+y=posarr[:,1]
+z=posarr[:,2]
+
+dipolearr = np.loadtxt(dipolef,delimiter=',',skiprows=1)
+u=dipolearr[:,0]
+v=dipolearr[:,1]
+w=dipolearr[:,2]
+
+import matplotlib.pyplot as plt
+
+# fig = plt.figure(figsize=(12, 12))
+# ax = fig.add_subplot(projection='3d')
+
+
+# ax.scatter(x,y,z)
+# plt.show()
+
+fig = plt.figure(figsize=(12, 12))
+ax = fig.add_subplot(projection='3d')
+
+
+ax.quiver(x,y,z,u,v,w,length=0.5, normalize=False,pivot='middle')
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+limits = 10
+ax.set_xlim(-limits,limits)
+ax.set_ylim(-limits,limits)
+ax.set_zlim(-limits,limits)
+plt.tight_layout()
+
+plt.savefig(f+'_dipoles.png')
 plt.show()
+
+
+
+# dipolef = f + '_dipoles.dat'
+# dipoles = np.loadtxt(dipolef,delimiter=',',skiprows=1)
+# with open(dipolef) as file:
+#     lines = [line.rstrip() for line in file]
+# latticex=int(lines[0].split()[-1].split(',')[0])
+# latticey=int(lines[0].split()[-1].split(',')[1])
+# latticez=int(lines[0].split()[-1].split(',')[2])
+# lattice_index_arr = np.zeros((latticex,latticey,latticez))
+# counter = 0
+# for i in range(0,latticex):
+#     for j in range(0,latticey):
+#         for k in range(0,latticez):
+#             lattice_index_arr[i,j,k]=counter
+#             counter+=1
+# x = []
+# y = []
+# z = []
+# u= []
+# v = []
+# w = []
+# for i in range(0,latticex):
+#     for j in range(0,latticey):
+#         for k in range(0,latticez):
+#             x.append(i)
+#             y.append(j)
+#             z.append(k)
+#             u.append(dipoles[int(lattice_index_arr[i,j,k])][0])
+#             v.append(dipoles[int(lattice_index_arr[i,j,k])][1])
+#             w.append(dipoles[int(lattice_index_arr[i,j,k])][2])
+# ax = plt.figure().add_subplot(projection='3d')
+# ax.quiver(x, y, z, u, v, w, length=0.5, normalize=True,pivot='middle')
+# ax.set_xlim(-1,max(x)+1)
+# ax.set_ylim(-1,max(y)+1)
+# ax.set_zlim(-1,max(z)+1)
+# plt.savefig(f+'_dipoles.png')
+
+# plt.show()
 
 cd_file = f + '_cd.csv'
 
