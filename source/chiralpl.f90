@@ -123,10 +123,11 @@ program chiralpl
         if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz, r_xyz &
         ,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing &
         ,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
-
+        ! OPEN(UNIT=13, FILE="Houtput.dat", ACTION="write", STATUS="replace", &
+        !     FORM="unformatted")
+        !     WRITE(13) H
+        ! CLOSE(UNIT=13)
         ! Hamiltonian diagonalization
-        ! LOOK INTO MAKING H COMPLEX SUCH THAT DEFECTIVE REAL MATRICES OF H ARE NO LONGER SO
-        ! CHECK DIAGONIZABILITY AS WELL
         call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
         thread = omp_get_thread_num()
         call absorption(abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,general_counter, lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,lattice_index_arr &
@@ -140,7 +141,7 @@ program chiralpl
             pl_specz_by_v_perconfig(:,vt) = pl_specz 
         end do
         call calc_abs_spec(abs_specx,abs_specy,abs_specz, EVAL,w00,lw,pi, abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,lattice_count,spec_steps,general_counter)
-        call cd(cd_rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,one_particle_index_arr,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral,k,mu_0,x_spacing,y_spacing,z_spacing)
+        call cd(cd_rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,one_particle_index_arr,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral,k,mu_0,x_spacing,y_spacing,z_spacing,r_xyz)
         call calc_cd_spec(cd_rot_strengths, cd_spec, EVAL,w00,lw,pi,lattice_count,spec_steps,general_counter)
         ! DO ADDING AT THE END OF THE LOOP SO WAITING AT A MINIMUM
         !$omp critical(UPDATESPEC)

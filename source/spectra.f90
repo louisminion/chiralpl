@@ -714,7 +714,7 @@ module spectra
             close(668)
         end subroutine
 
-        subroutine cd(cd_rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,one_particle_index_arr,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral,k,mu_0,x_spacing,y_spacing,z_spacing)
+        subroutine cd(cd_rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,one_particle_index_arr,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral,k,mu_0,x_spacing,y_spacing,z_spacing,r_xyz)
             implicit none
             ! indices for vibronic excitations
             integer(wp) nx,ny,nz,n,mx,my,mz,m,vib,vib2
@@ -727,7 +727,7 @@ module spectra
             real(wp), intent(in) :: H(:,:), k, mu_0
             integer,intent(in) :: general_counter
             integer(wp), intent(in) :: lattice_dimx,lattice_dimy, lattice_dimz, max_vibs
-            real(wp), intent(in) :: mu_xyz(:,:), x_spacing, y_spacing,z_spacing
+            real(wp), intent(in) :: mu_xyz(:,:), r_xyz(:,:), x_spacing, y_spacing,z_spacing
             real(wp), intent(in) :: fc_ground_to_neutral(0:,0:)
             integer(wp), intent(in) :: lattice_index_arr(:,:,:)
             integer(wp), intent(in) :: one_particle_index_arr(:,0:)
@@ -740,18 +740,18 @@ module spectra
                         do nz=1,lattice_dimz
                             n = lattice_index_arr(nx,ny,nz)
                             mu_n = mu_xyz(n,:)
-                            r_n(1) = nx*x_spacing
-                            r_n(2) = ny*y_spacing
-                            r_n(3) = nz*z_spacing
+                            r_n(1) = r_xyz(n,1)
+                            r_n(2) = r_xyz(n,2)
+                            r_n(3) = r_xyz(n,3)
                             do mx=1,lattice_dimx
                                 do my=1,lattice_dimy
                                     do mz=1,lattice_dimz
                                         m = lattice_index_arr(mx,my,mz)
                                         mu_m = mu_xyz(m,:)
                                         crossproduct = cross(mu_n,mu_m)
-                                        r_m(1) = mx*x_spacing
-                                        r_m(2) = my*y_spacing
-                                        r_m(3) = mz*z_spacing
+                                        r_m(1) = r_xyz(m,1)
+                                        r_m(2) = r_xyz(m,2)
+                                        r_m(3) = r_xyz(m,3)
                                         rdiff = r_n-r_m
                                         do vib=0,max_vibs
                                             do vib2=0,max_vibs

@@ -51,16 +51,15 @@ module hamiltonian
                     mu_xyz(ixyz,1)= mu_0*(cos(((ix*1.0_wp)-2.0_wp)*phi))
                     ! write(*,*) 'MUX', cos(((ix*1.0_wp)-2.0_wp)*phi)
                     mu_xyz(ixyz,2)= mu_0*(sin(((ix*1.0_wp)-2.0_wp)*phi))
-                    mu_xyz(ixyz,3) = mu_0*(cos(theta))
+                    mu_xyz(ixyz,3) = mu_0*(sin(theta))
                 end do
 
             end if 
         end subroutine
 
-        real(wp) function coupling(x1,y1,z1,x2,y2,z2, mu_xyz,r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)
+        real(wp) function coupling(x1,y1,z1,x2,y2,z2,mu_xyz,r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)
             integer(wp), intent(in) :: x1,y1,z1,x2,y2,z2
-            integer(wp) :: d_x, d_y, d_z, i_xyz1, i_xyz2
-            real(wp) :: dx,dy,dz
+            integer(wp) :: i_xyz1, i_xyz2
             real(wp), dimension(3) :: R, R_norm
             real(wp), intent(in) :: mu_xyz(:,:), r_xyz(:,:)
             integer(wp), intent(in) :: lattice_index_arr(:,:,:)
@@ -75,11 +74,11 @@ module hamiltonian
             coupling  = 0.0_wp
             i_xyz1 = lattice_index_arr(x1,y1,z1)
             i_xyz2 = lattice_index_arr(x2,y2,z2)
+            if (i_xyz1 .eq. i_xyz2) then
+                return
+            end if
 
 
-            d_x = abs(r_xyz(i_xyz2,1) - r_xyz(i_xyz1,1))
-            d_y = abs(r_xyz(i_xyz2,2) - r_xyz(i_xyz1,2))
-            d_z = abs(r_xyz(i_xyz2,3) - r_xyz(i_xyz1,3))
             ! if (manual_coupling .eq. .true.) then
             !     go to 78
             ! end if
@@ -88,24 +87,21 @@ module hamiltonian
             mu1_dotR = 0.0_wp
             mu2_dotR = 0.0_wp
 
-            if (x1 .eq. x2) then
-                if (z1 .eq. z2) then
-                    if (y1 .eq. y2) then
-                        return ! don't calc coupling if same lattice site
-                    else
-                        ! maybe add CT contribution to coupling
-                        continue ! for now skip
-                    end if 
-                end if
-            end if
+            ! if (x1 .eq. x2) then
+            !     if (z1 .eq. z2) then
+            !         if (y1 .eq. y2) then
+            !             return ! don't calc coupling if same lattice site
+            !         else
+            !             ! maybe add CT contribution to coupling
+            !             continue ! for now skip
+            !         end if 
+            !     end if
+            ! end if
             ! Calculate coupling using point dipole approximation, Jc = (mu1.mu2 - 3(mu1.R_norm)(mu2.R_norm))/(4*pi*epsilon*R_mag)
-            dx = (d_x*1.0_wp)*x_spacing
-            dy = (d_y*1.0_wp)*y_spacing
-            dz = (d_z*1.0_wp)*z_spacing
-            R(1) = dx
-            R(2) = dy
-            R(3) = dz
-            R_mag = sqrt((dx**2)+(dy**2)+(dz**2))
+
+            R = r_xyz(i_xyz2,:) - r_xyz(i_xyz1,:)
+
+            R_mag = sqrt((R(1)**2)+(R(2)**2)+(R(3)**2))
             R_norm = (1/R_mag)*R
             dipole_dot_product = mu_xyz(i_xyz1,1)*mu_xyz(i_xyz2,1) + mu_xyz(i_xyz1,2)*mu_xyz(i_xyz2,2) + mu_xyz(i_xyz1,3)*mu_xyz(i_xyz2,3)
             mu1_dotR = mu_xyz(i_xyz1,1)*R_norm(1) + mu_xyz(i_xyz1,2)*R_norm(2) + mu_xyz(i_xyz1,2)*R_norm(2)
@@ -169,7 +165,12 @@ module hamiltonian
                                             h_j = one_particle_index_arr(i_xyz2, vib_i2)
                                             if ( h_j == empty ) cycle
                                             if (h_j .eq. h_i) cycle
-                                            H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                            H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi,epsilon)*fc_ground_to_neutral(0,vib_i1)*fc_ground_to_neutral(0,vib_i2)
+                                            ! if (isnan(H(h_i, h_j))) then
+                                            !     write(*,*) 'ONEPARTICLE NAN', i_x1,i_y1,i_z1,i_x2,i_y2,i_z2
+                                            !     write(*,*) 'INDEX', i_xyz1,i_xyz2
+                                            !     write(*,*) 'COUPLING', coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi,epsilon)
+                                            ! end if
                                             H(h_j, h_i) = H(h_i, h_j)
                                         end do
                                     end do
@@ -234,6 +235,9 @@ module hamiltonian
                                                                     if ( h_j .eq. empty .or. h_j .eq. h_i ) cycle
                                                                     H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz,r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v, vib_i1)*fc_ground_to_neutral(vib_i1v,vib_i2)
                                                                     H(h_j, h_i) = H(h_i, h_j)
+                                                                    if (isnan(H(h_i, h_j))) then
+                                                                        write(*,*) 'TWOPARTICLE NAN', i_x1,i_y1,i_z1,i_x2,i_y2,i_z2
+                                                                    end if
                                                                 end do
                                                             end if
                                                         end do
@@ -367,3 +371,5 @@ module hamiltonian
 
 
 end module
+
+! NOTES TO SELF: SOMETHING WEIRD IS OCCURING WITH COUPLING FUNCTION
