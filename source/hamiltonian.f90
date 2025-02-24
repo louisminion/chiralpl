@@ -2,7 +2,7 @@ module hamiltonian
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     implicit none
     private
-    public :: dipole_moment, coupling, build1particleHamiltonian, build2particleHamiltonian, build1particle2particleHamiltonian, Diagonalize
+    public :: dipole_moment, coupling, build1particleHamiltonian, build2particleHamiltonian, build1particle2particleHamiltonian, buildChargeTransferHamiltonian, Diagonalize
 
     contains
         subroutine dipole_moment
@@ -305,6 +305,72 @@ module hamiltonian
             end do
         end subroutine
 
+        subroutine buildChargeTransferHamiltonian(H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,max_vibs,chargetransfer_index_arr,E_CT,te,th,empty)
+            implicit none
+            real(wp), intent(inout) :: H(:,:)
+            integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz,max_vibs
+            integer(wp), intent(in) :: chargetransfer_index_arr(:,0:,:,0:)
+            real(wp), intent(in) :: E_CT,te,th
+            integer(wp) :: i_xc,i_yc,i_zc,vibc,i_xa,i_ya,i_za,viba,i_xyzc,i_xyza,h_i,h_j
+            integer(wp) :: i_xc2,i_yc2,i_zc2,vibc2,i_xa2,i_ya2,i_za2,viba2,i_xyzc2,i_xyza2
+            integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            integer(wp) :: empty = -1
+            ! Two types of matrix elements; diagonal and offdiagonal.
+            ! Diagonal are <n,v;s,v'|H|n,v;s,v'> = E_CT(s) +(v+v')hw
+            ! Offdiagonal are <n,v;s,v'|H|n,v'';s',v''''> = 
+            do i_xc=1,lattice_dimx
+                do i_yc=1,lattice_dimy
+                    do i_zc=1,lattice_dimz
+                        do vibc=0,max_vibs ! for each cation state, loop over all other lattice sites for anion sites
+                            do i_xa=1,lattice_dimx
+                                do i_ya=1,lattice_dimy
+                                    do i_za=1,lattice_dimz
+                                        do viba=0,max_vibs
+                                            i_xyzc= lattice_index_arr(i_xc,i_yc,i_zc) ! n
+                                            i_xyza=lattice_index_arr(i_xa,i_ya,i_za) ! n+s
+                                            if ( i_xyzc .eq. i_xyza ) cycle ! |s|>=1 (s=0 would be Frenkel excitons)
+                                            if (h_i .eq. empty) cycle
+                                            h_i = chargetransfer_index_arr(i_xyzc, vibc, i_xyza, viba)
+                                            H(h_i,h_i) = E_CT + (vibc+viba)*1.0_wp
+
+                                            do i_xc2=1,lattice_dimx
+                                                do i_yc2=1,lattice_dimy
+                                                    do i_zc2=1,lattice_dimz
+                                                        i_xyzc2 = lattice_index_arr(i_xc2,i_yc2,i_zc2)
+                                                        do vibc2=0,max_vibs ! for each cation state, loop over all other lattice sites for anion sites
+                                                            do i_xa2=1,lattice_dimx
+                                                                do i_ya2=1,lattice_dimy
+                                                                    do i_za2=1,lattice_dimz
+                                                                        i_xyza2 = lattice_index_arr(i_xa2,i_ya2,i_za2)
+                                                                        do viba2=0,max_vibs
+                                                                            h_j = chargetransfer_index_arr(i_xyzc2, vibc2, i_xyza2, viba2)
+                                                                            if (h_j .eq. empty .or. h_j .eq. h_i) cycle ! check in basis and not already assigned
+                                                                            ! If s>1 in basis, it will be here. Else not as it will be equal to empty!
+                                                                            ! When electrons move (hop) they can change vibrational states in the anion, but hole stays in the same vib state.
+                                                                            ! When holes move (hop), its vice versa
+                                                                            ! Therefore we check if the hole is in the same vibrational energy level with kd(viba,viba2), calculate the vibrational overlap for the electron via te*<v'|v'''> 
+                                                                            ! Which we can do because of Born-Oppenheimer/Franck-Condon!
+                                                                            H(h_i,h_j) = te*fc_ground_to_anion(0,viba)*fc_ground_to_anion(0,viba2)*(KroneckerDelta(vibc, vibc2)*1.0_wp) + th*fc_ground_to_cation(0,vibc)*fc_ground_to_cation(0,vibc2)*(KroneckerDelta(viba, viba2)*1.0_wp)
+
+
+                                                                        end do
+                                                                    end do
+                                                                end do
+                                                            end do
+                                                        end do
+                                                    end do
+                                                end do
+                                            end do
+                                        end do
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+
+        end subroutine
 
         subroutine Diagonalize(A,RANGE,N,W,M,I_U)
             use variables
@@ -369,7 +435,16 @@ module hamiltonian
             deallocate( Z, WORK, IWORK )
         end subroutine
 
+        integer(wp) function KroneckerDelta(a,b)
+            implicit none
+            integer(wp), intent(in) :: a,b
+
+            KroneckerDelta = 0
+
+            if (a .eq. b) KroneckerDelta = 1
+            return
+        end function
+
 
 end module
 
-! NOTES TO SELF: SOMETHING WEIRD IS OCCURING WITH COUPLING FUNCTION

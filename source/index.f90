@@ -98,17 +98,20 @@ module index
 
 
 
-        subroutine chargeTransferIndex(chargetransfer_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,chargetransfer_counter,empty, general_counter,lattice_index_arr)
+        subroutine chargeTransferIndex(chargetransfer_index_arr,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,chargetransfer_counter,empty, general_counter,lattice_index_arr,bonding_matrix)
             ! |n,v+;n+s,v->
             !LM index charge transfer states consisting of a vibrationally excited cation and an anion.
             !LM charge transfer states are tricky. Spano and Hestand use the index s for one-dimensional aggregates.
             !LM I think I can still use s when I unravel the whole aggregate into a 1d array with lattice_index_arr
+            
+            !LM 2025: restrict charge transfer sites to bonded sites with a nearest neighbour separation of 1 only.
 
             implicit none
             integer(wp) i_xc, i_yc, i_zc, i_xyzc, vibc ! indices for cations/ vibrations
             integer(wp) i_xa, i_ya, i_za, i_xyza, viba ! indices for anions/ vibrations
             integer(wp), intent(in) :: max_vibs, lattice_dimx, lattice_dimy, lattice_dimz, empty
             integer(wp), dimension(:,:,:), intent(in) :: lattice_index_arr
+            integer(wp), intent(in) :: bonding_matrix(:,:)
             integer(wp), intent(inout) :: chargetransfer_index_arr(:,0:,:,0:)
             integer(wp), intent(inout) :: chargetransfer_counter
             integer, intent(inout) :: general_counter
@@ -125,6 +128,7 @@ module index
                                             i_xyza=lattice_index_arr(i_xa,i_ya,i_za) ! n+s
                                             if ( i_xyzc .eq. i_xyza ) cycle ! |s|>=1 (s=0 would be Frenkel excitons)
                                             if (viba + vibc > max_vibs) cycle 
+                                            if (bonding_matrix(i_xyza,i_xyzc) .ne. 1) cycle
                                             general_counter = general_counter + 1
                                             chargetransfer_counter = chargetransfer_counter + 1
                                             chargetransfer_index_arr(i_xyzc, vibc, i_xyza, viba) = general_counter

@@ -76,6 +76,8 @@ module input
                         read(buffer, *, iostat=io_stat) lambda_neutral
                     case ( 'MONOMER_TRANSITION')
                         read(buffer, *, iostat=io_stat) w00
+                    case ( 'E_CT' )
+                        read(buffer, *, iostat=io_stat) E_CT
                     case ( 'TRANSITION_DIPOLE' )
                         read(buffer, *, iostat=io_stat) mu_0
                     case ( 'TEMPERATURE' )
