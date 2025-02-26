@@ -13,7 +13,7 @@ Compilation requires intel fortran compiler ifx and the MKL library (LAPACK).
 - [x] Parallelisation of configurational average using OpenMP
 - [x] Simulation of CD spectra
 - [ ] Simulation of CPL spectra (Nearly there!)
-- [ ] Effects of charge-transfer interactions.
+- [x] Effects of charge-transfer interactions.
 - [ ] Simulation of very large systems using sparse matrices.
 
 ### References
