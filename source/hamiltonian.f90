@@ -466,6 +466,8 @@ module hamiltonian
                                                                             if ( i_xyzc .eq. i_xyza ) cycle ! |s|>=1 (s=0 would be Frenkel excitons)
                                                                             h_j = chargetransfer_index_arr(i_xyzc, vibc, i_xyza, viba)
                                                                             if (h_j .eq. empty) cycle
+                                                                            H(h_i,h_j) = te*fc_ground_to_anion(vib_i1v,viba)*fc_cation_to_frenkel(vibc,vib_i1)*KroneckerDelta(i_xyz1v,i_xyza)*KroneckerDelta(i_xyz1,i_xyzc) +  th*fc_ground_to_cation(vib_i1v,vibc)*fc_anion_to_frenkel(viba,vib_i1)*KroneckerDelta(i_xyz1v,i_xyzc)*KroneckerDelta(i_xyz1,i_xyza)
+                                                                            H(h_j,h_i) = H(h_i,h_j)
                                                                         end do
                                                                     end do
                                                                 end do
