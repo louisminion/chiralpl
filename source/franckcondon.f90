@@ -9,17 +9,53 @@ module franckcondon
         subroutine calcFranckCondonTables()
             ! precalculates vibrational overlap integrals into table
             ! starting with just ground-state to frenkel exciton type <m|n> factors
+            ! also calculate fc tables for charge-transfer excitons; vibrational overlap between neutral ground state and cation/anion vibrational manifold.
             implicit none
             integer(wp) :: ground_vib, exc_vib
             real(wp) :: vibolap
             if (.not. allocated(fc_ground_to_neutral)) then
                 allocate(fc_ground_to_neutral(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j. Zero-indexed
             end if
-
+            if (.not. allocated(fc_ground_to_cation)) then
+                allocate(fc_ground_to_cation(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j. Zero-indexed
+            end if
+            if (.not. allocated(fc_ground_to_anion)) then
+                allocate(fc_ground_to_anion(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j. Zero-indexed
+            end if
+            if (.not. allocated(fc_cation_to_frenkel)) then
+                allocate(fc_cation_to_frenkel(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j. Zero-indexed
+            end if
+            if (.not. allocated(fc_anion_to_frenkel)) then
+                allocate(fc_anion_to_frenkel(0:max_vibs, 0:max_vibs)) ! 2d array with each element vibrational overlap between state i and state j. Zero-indexed
+            end if
             do ground_vib=0,max_vibs
                 do exc_vib=0,max_vibs
                     call calcVibrationalOverlap(0.0_wp,ground_vib,lambda_neutral,exc_vib,vibolap)
                     fc_ground_to_neutral(ground_vib, exc_vib) = vibolap
+                end do
+            end do
+            do ground_vib=0,max_vibs
+                do exc_vib=0,max_vibs
+                    call calcVibrationalOverlap(0.0_wp,ground_vib,lambda_plus,exc_vib,vibolap)
+                    fc_ground_to_cation(ground_vib, exc_vib) = vibolap
+                end do
+            end do
+            do ground_vib=0,max_vibs
+                do exc_vib=0,max_vibs
+                    call calcVibrationalOverlap(0.0_wp,ground_vib,lambda_minus,exc_vib,vibolap)
+                    fc_ground_to_anion(ground_vib, exc_vib) = vibolap
+                end do
+            end do
+            do ground_vib=0,max_vibs
+                do exc_vib=0,max_vibs
+                    call calcVibrationalOverlap(lambda_minus,ground_vib,lambda_neutral,exc_vib,vibolap)
+                    fc_anion_to_frenkel(ground_vib, exc_vib) = vibolap
+                end do
+            end do
+            do ground_vib=0,max_vibs
+                do exc_vib=0,max_vibs
+                    call calcVibrationalOverlap(lambda_plus,ground_vib,lambda_neutral,exc_vib,vibolap)
+                    fc_cation_to_frenkel(ground_vib, exc_vib) = vibolap
                 end do
             end do
             !FCWRITE

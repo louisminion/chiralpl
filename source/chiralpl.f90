@@ -124,9 +124,10 @@ program chiralpl
         if ( bool_one_particle_states .and. bool_two_particle_states ) call build1particle2particleHamiltonian(H,diagonal_disorder_offsets,mu_xyz, r_xyz &
         ,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing &
         ,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
-        ! if (bool_charge_transfer_states) call buildChargeTransferHamiltonian(H,diagonal_disorder_offsets,mu_xyz, r_xyz &
-        ! ,fc_ground_to_neutral,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,one_particle_index_arr,two_particle_index_arr,manual_coupling,x_spacing &
-        ! ,y_spacing,z_spacing, lattice_index_arr,pi, epsilon,w00)
+        if (bool_charge_transfer_states) call buildChargeTransferHamiltonian(H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,max_vibs &
+        ,chargetransfer_index_arr,E_CT,te,th,fc_ground_to_neutral,fc_ground_to_anion,fc_ground_to_cation)
+        if ( bool_one_particle_states .and. bool_charge_transfer_states) call buildOneParticleChargeTransferHamiltonian(H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,max_vibs,one_particle_index_arr &
+        ,chargetransfer_index_arr,te,th,fc_ground_to_neutral,fc_ground_to_anion,fc_ground_to_cation,fc_cation_to_frenkel,fc_anion_to_frenkel)
         ! Hamiltonian diagonalization
         call Diagonalize(H,'A',general_counter, EVAL, EVAL_COUNT, IU)
         thread = omp_get_thread_num()

@@ -82,6 +82,10 @@ module input
                         read(buffer, *, iostat=io_stat) mu_0
                     case ( 'TEMPERATURE' )
                         read(buffer, *, iostat=io_stat) temp
+                    case ( 'ELECTRON_TRANSFER_INTEGRAL' )
+                        read(buffer, *, iostat=io_stat) te
+                    case ( 'HOLE_TRANSFER_INTEGRAL' )
+                        read(buffer, *, iostat=io_stat) th                        
                     case ( 'JCOULX' )
                         read(buffer, *, iostat=io_stat) JCoulx
                     case ( 'JCOULY' )
@@ -127,6 +131,12 @@ module input
             twist_angle = pi*(twist_angle/180.0_wp)
             mu_0 = mu_0/Debye
             k = w00/c
+            if (configs .eq. 0) then
+                print*, "WARNING: NUMBER OF CONFIGURATIONS CANNOT BE SET TO ZERO."
+                print*, "WARNING: SETTING CONFIGS TO 1."
+
+                configs = 1
+            end if
         end subroutine
 
 

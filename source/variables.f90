@@ -29,6 +29,8 @@ module variables
     integer(wp) :: max_vibs
     integer(wp) :: n_nearest_neighbour = 1
     real(wp) :: lambda_neutral  = 1.0_wp
+    real(wp) :: lambda_plus  = 1.0_wp
+    real(wp) :: lambda_minus  = 1.0_wp
     real(wp) :: w00 = 14000.0_wp
     real(wp) :: hw = 1400.0_wp
     real(wp) :: mu_0 = 1.0_wp*Debye
@@ -67,9 +69,12 @@ module variables
     integer(wp), allocatable :: two_particle_index_arr(:,:,:,:)
     integer(wp), allocatable :: chargetransfer_index_arr(:,:,:,:)
 
-    ! franck-condon table
+    ! franck-condon tables
     real(wp), allocatable :: fc_ground_to_neutral(:,:)
-
+    real(wp), allocatable :: fc_ground_to_cation(:,:)
+    real(wp), allocatable :: fc_ground_to_anion(:,:)
+    real(wp), allocatable :: fc_anion_to_frenkel(:,:)
+    real(wp), allocatable :: fc_cation_to_frenkel(:,:)
     ! array of dipole moment vectors
     real(wp), allocatable :: mu_xyz(:,:)
     ! array of position vectors

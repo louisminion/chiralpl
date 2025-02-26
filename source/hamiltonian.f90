@@ -2,7 +2,7 @@ module hamiltonian
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     implicit none
     private
-    public :: dipole_moment, coupling, build1particleHamiltonian, build2particleHamiltonian, build1particle2particleHamiltonian, buildChargeTransferHamiltonian, Diagonalize
+    public :: dipole_moment, coupling, build1particleHamiltonian, build2particleHamiltonian, build1particle2particleHamiltonian,buildChargeTransferHamiltonian,buildOneParticleChargeTransferHamiltonian,Diagonalize
 
     contains
         subroutine dipole_moment
@@ -227,6 +227,9 @@ module hamiltonian
                                                                 H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz, manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)* &
                                                                 fc_ground_to_neutral(0, vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                                                 H(h_j,h_i) = H(h_i,h_j)
+                                                                ! if (isnan(H(h_i, h_j))) then
+                                                                !     write(*,*) 'TWOPARTICLE NAN', i_x1,i_y1,i_z1,i_x2,i_y2,i_z2
+                                                                ! end if
                                                             end if
                                                             if (i_xyz1v .eq. i_xyz2) then ! if vibrat exc in state 1 at same place as vibronic on state 2 then exchange type 
                                                                 i_xyz2v = i_xyz1
@@ -235,9 +238,9 @@ module hamiltonian
                                                                     if ( h_j .eq. empty .or. h_j .eq. h_i ) cycle
                                                                     H(h_i, h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz,r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v, vib_i1)*fc_ground_to_neutral(vib_i1v,vib_i2)
                                                                     H(h_j, h_i) = H(h_i, h_j)
-                                                                    if (isnan(H(h_i, h_j))) then
-                                                                        write(*,*) 'TWOPARTICLE NAN', i_x1,i_y1,i_z1,i_x2,i_y2,i_z2
-                                                                    end if
+                                                                    ! if (isnan(H(h_i, h_j))) then
+                                                                    !     write(*,*) 'TWOPARTICLE NAN', i_x1,i_y1,i_z1,i_x2,i_y2,i_z2
+                                                                    ! end if
                                                                 end do
                                                             end if
                                                         end do
@@ -294,6 +297,9 @@ module hamiltonian
                                                 if (h_j .eq. empty) cycle
                                                 H(h_i,h_j) = coupling(i_x1,i_y1,i_z1,i_x2,i_y2,i_z2, mu_xyz, r_xyz,manual_coupling,x_spacing,y_spacing,z_spacing, lattice_index_arr,pi, epsilon)*fc_ground_to_neutral(vib_i2v,vib_i1)*fc_ground_to_neutral(0,vib_i2)
                                                 H(h_j,h_i) = H(h_i,h_j)
+                                                ! if (isnan(H(h_i, h_j))) then
+                                                !     write(*,*) 'ONEPARTICLETWOPARTICLE NAN', i_x1,i_y1,i_z1,i_x2,i_y2,i_z2
+                                                ! end if
                                             end do
                                         end do
                                     end do
@@ -305,7 +311,7 @@ module hamiltonian
             end do
         end subroutine
 
-        subroutine buildChargeTransferHamiltonian(H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,max_vibs,chargetransfer_index_arr,E_CT,te,th,empty)
+        subroutine buildChargeTransferHamiltonian(H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,max_vibs,chargetransfer_index_arr,E_CT,te,th,fc_ground_to_neutral,fc_ground_to_anion,fc_ground_to_cation)
             implicit none
             real(wp), intent(inout) :: H(:,:)
             integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz,max_vibs
@@ -314,6 +320,7 @@ module hamiltonian
             integer(wp) :: i_xc,i_yc,i_zc,vibc,i_xa,i_ya,i_za,viba,i_xyzc,i_xyza,h_i,h_j
             integer(wp) :: i_xc2,i_yc2,i_zc2,vibc2,i_xa2,i_ya2,i_za2,viba2,i_xyzc2,i_xyza2
             integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            real(wp), intent(in) :: fc_ground_to_neutral(0:,0:),fc_ground_to_anion(0:,0:),fc_ground_to_cation(0:,0:)
             integer(wp) :: empty = -1
             ! Two types of matrix elements; diagonal and offdiagonal.
             ! Diagonal are <n,v;s,v'|H|n,v;s,v'> = E_CT(s) +(v+v')hw
@@ -329,8 +336,8 @@ module hamiltonian
                                             i_xyzc= lattice_index_arr(i_xc,i_yc,i_zc) ! n
                                             i_xyza=lattice_index_arr(i_xa,i_ya,i_za) ! n+s
                                             if ( i_xyzc .eq. i_xyza ) cycle ! |s|>=1 (s=0 would be Frenkel excitons)
-                                            if (h_i .eq. empty) cycle
                                             h_i = chargetransfer_index_arr(i_xyzc, vibc, i_xyza, viba)
+                                            if (h_i .eq. empty) cycle
                                             H(h_i,h_i) = E_CT + (vibc+viba)*1.0_wp
 
                                             do i_xc2=1,lattice_dimx
@@ -351,8 +358,7 @@ module hamiltonian
                                                                             ! Therefore we check if the hole is in the same vibrational energy level with kd(viba,viba2), calculate the vibrational overlap for the electron via te*<v'|v'''> 
                                                                             ! Which we can do because of Born-Oppenheimer/Franck-Condon!
                                                                             H(h_i,h_j) = te*fc_ground_to_anion(0,viba)*fc_ground_to_anion(0,viba2)*(KroneckerDelta(vibc, vibc2)*1.0_wp) + th*fc_ground_to_cation(0,vibc)*fc_ground_to_cation(0,vibc2)*(KroneckerDelta(viba, viba2)*1.0_wp)
-
-
+                                                                            H(h_j,h_i) = H(h_i,h_j)    
                                                                         end do
                                                                     end do
                                                                 end do
@@ -372,6 +378,111 @@ module hamiltonian
 
         end subroutine
 
+
+        subroutine buildOneParticleChargeTransferHamiltonian(H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,max_vibs,one_particle_index_arr,chargetransfer_index_arr,te,th,fc_ground_to_neutral,fc_ground_to_anion,fc_ground_to_cation,fc_cation_to_frenkel,fc_anion_to_frenkel)
+            implicit none
+            real(wp), intent(inout) :: H(:,:)
+            integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz,max_vibs
+            integer(wp), intent(in) :: chargetransfer_index_arr(:,0:,:,0:)
+            integer(wp), intent(in) :: one_particle_index_arr(:,0:)
+            real(wp), intent(in) :: te,th
+            integer(wp) :: i_xc,i_yc,i_zc,vibc,i_xa,i_ya,i_za,viba,i_xyzc,i_xyza,h_i,h_j
+            integer(wp) :: i_x1,i_y1,i_z1,vib_i1,i_xyz1
+            integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            real(wp), intent(in) :: fc_ground_to_neutral(0:,0:),fc_ground_to_anion(0:,0:),fc_ground_to_cation(0:,0:),fc_cation_to_frenkel(0:,0:),fc_anion_to_frenkel(0:,0:)
+            integer(wp) :: empty = -1
+            do i_x1=1,lattice_dimx
+                do i_y1=1,lattice_dimy
+                    do i_z1=1,lattice_dimz
+                        do vib_i1=0,max_vibs
+                            i_xyz1 = lattice_index_arr(i_x1,i_y1,i_z1) !get lattice index of state 1 1-particle exc
+                            h_i = one_particle_index_arr(i_xyz1, vib_i1)
+                            if (h_i .eq. empty) cycle
+                            do i_xc=1,lattice_dimx
+                                do i_yc=1,lattice_dimy
+                                    do i_zc=1,lattice_dimz
+                                        do vibc=0,max_vibs ! for each cation state, loop over all other lattice sites for anion sites
+                                            do i_xa=1,lattice_dimx
+                                                do i_ya=1,lattice_dimy
+                                                    do i_za=1,lattice_dimz
+                                                        do viba=0,max_vibs
+                                                            i_xyzc= lattice_index_arr(i_xc,i_yc,i_zc) ! n
+                                                            i_xyza=lattice_index_arr(i_xa,i_ya,i_za) ! n+s
+                                                            if ( i_xyzc .eq. i_xyza ) cycle ! |s|>=1 (s=0 would be Frenkel excitons)
+                                                            h_j = chargetransfer_index_arr(i_xyzc, vibc, i_xyza, viba)
+                                                            if (h_j .eq. empty) cycle
+                                                            H(h_i,h_j) = te*fc_ground_to_anion(0,viba)*fc_cation_to_frenkel(vibc,vib_i1) +  th*fc_ground_to_cation(0,vibc)*fc_anion_to_frenkel(viba,vib_i1)
+                                                            H(h_j,h_i) = H(h_i,h_j)  
+                                                        end do
+                                                    end do
+                                                end do
+                                            end do
+                                        end do
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+            
+        end subroutine
+        subroutine build2particleChargeTransferHamiltonian(H,lattice_dimx,lattice_dimy,lattice_dimz,max_vibs,two_particle_index_arr,x_spacing,y_spacing,z_spacing, lattice_index_arr,chargetransfer_index_arr,te,th,fc_ground_to_neutral,fc_ground_to_anion,fc_ground_to_cation,fc_cation_to_frenkel,fc_anion_to_frenkel)
+            implicit none
+            real(wp), intent(inout) :: H(:,:)
+            integer(wp), intent(in) :: lattice_dimx,lattice_dimy,lattice_dimz,max_vibs
+            real(wp), intent(in) :: x_spacing, y_spacing, z_spacing
+            integer(wp), intent(in) :: two_particle_index_arr(:,0:,:,1:)
+            integer(wp), intent(in) :: lattice_index_arr(:,:,:)
+            integer(wp), intent(in) :: chargetransfer_index_arr(:,0:,:,0:)
+            real(wp), intent(in) :: te,th
+            integer(wp) :: i_xc,i_yc,i_zc,vibc,i_xa,i_ya,i_za,viba,i_xyzc,i_xyza,h_i,h_j
+            integer(wp) :: i_x1,i_y1,i_z1,vib_i1,i_xyz1
+            integer(wp) :: i_x1v, i_y1v, i_z1v, vib_i1v, i_xyz1v
+            real(wp), intent(in) :: fc_ground_to_neutral(0:,0:),fc_ground_to_anion(0:,0:),fc_ground_to_cation(0:,0:),fc_cation_to_frenkel(0:,0:),fc_anion_to_frenkel(0:,0:)
+            integer(wp) :: empty = -1
+            do i_x1 = 1, lattice_dimx
+                do i_y1 = 1, lattice_dimy
+                    do i_z1=1,lattice_dimz
+                        do vib_i1=0,max_vibs
+                            i_xyz1 = lattice_index_arr(i_x1,i_y1,i_z1)
+                            do i_x1v=1, lattice_dimx
+                                do i_y1v=1, lattice_dimy
+                                    do i_z1v=1, lattice_dimz
+                                        do vib_i1v=1, max_vibs
+                                            i_xyz1v = lattice_index_arr(i_x1v,i_y1v,i_z1v)
+                                            h_i = two_particle_index_arr(i_xyz1,vib_i1, i_xyz1v, vib_i1v)
+                                            if (h_i .eq. empty) cycle
+                                            do i_xc=1,lattice_dimx
+                                                do i_yc=1,lattice_dimy
+                                                    do i_zc=1,lattice_dimz
+                                                        do vibc=0,max_vibs ! for each cation state, loop over all other lattice sites for anion sites
+                                                            do i_xa=1,lattice_dimx
+                                                                do i_ya=1,lattice_dimy
+                                                                    do i_za=1,lattice_dimz
+                                                                        do viba=0,max_vibs
+                                                                            i_xyzc= lattice_index_arr(i_xc,i_yc,i_zc) ! n
+                                                                            i_xyza=lattice_index_arr(i_xa,i_ya,i_za) ! n+s
+                                                                            if ( i_xyzc .eq. i_xyza ) cycle ! |s|>=1 (s=0 would be Frenkel excitons)
+                                                                            h_j = chargetransfer_index_arr(i_xyzc, vibc, i_xyza, viba)
+                                                                            if (h_j .eq. empty) cycle
+                                                                        end do
+                                                                    end do
+                                                                end do
+                                                            end do
+                                                        end do
+                                                    end do
+                                                end do
+                                            end do
+                                        end do
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+        end subroutine
         subroutine Diagonalize(A,RANGE,N,W,M,I_U)
             use variables
             implicit none
