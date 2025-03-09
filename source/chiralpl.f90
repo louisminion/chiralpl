@@ -1,3 +1,29 @@
+! Louis Minion 2025 All rights reserved.
+! This program is designed to simulate the states and visible spectra of 
+! organic polymers or aggregates, with a focus on chiroptical properties.
+! It represents excitations as Frenkel excitons, coupled via a Holstein Hamiltonian
+! to nuclear vibrations. Charge transfer excitons may also be included as an optional extra, limited to nearest neighbour.
+! These are modelled using the multiparticle basis in the two-particle approximation.
+! The structure is generally as follows:
+! 1) Read the input, and decide whether an average over disordered states or a single zero-disorder calculation is requested.
+! 2) Construct and index the basis.
+! 3) Construct the Hamiltonian by calculating the coupling terms due to the various inter-site interactions.
+! 4) Diagonalize the Hamiltonian.
+! 5) Calculate spectral properties.
+! 6) Write output.
+! The program is still under development, and particularly the PL and CPL functions are being refined to account for CT and properly include vibronic terms.
+! This work was heavily inspired by N J Hestand's exciton1D, and generally the work of the Spano and Barford groups to model
+! the vibronic spectra of organic supramolecular systems.
+
+! An aside on the theory
+! Our Hamiltonian H = H_el + H_vib, H_el =  ∑|n><n|*E_S1 +  ∑J_nm*|n><m|+h.c. + CT terms if included.
+! H_vib = ħw∑b†b + ħw∑{λ(b† + b) + λ²}|n><n| + CT terms if included.
+! Certain approximations need to be made, mostly around electron-phonon coupling. The Lang-Firsov transformation can be used 
+! remove the linear phonon creation/destruction operator terms. We also assume J>>λ, and that J can be approximated by Coulomb
+! coupling of the Frenkel excitons as dipoles (and sometimes including a superexchange term for approximating CT).
+
+! Dev notes
+! Add superexchange as an easy way to account for CT character/bonded sites vs unbonded.
 program chiralpl
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     use input
