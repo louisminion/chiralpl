@@ -15,7 +15,7 @@ module disorder
     ! Fourth step; delta = mu + B*Z, where mu is the mean vector of the prob distribution.
     ! Computational effort can be saved by only doing the first two steps once, rather than once per configuration.
         subroutine construct_covariance_matrix()
-            ! doesn't need to be done in do loop, can use global variables.
+            ! Defines the random distribution of diagonal disorder and how correlated close together sites are
             use variables
             implicit none
             integer(wp) :: nx,ny,nz,mx,my,mz, nxyz, mxyz
@@ -58,6 +58,7 @@ module disorder
         end subroutine
 
         subroutine cholesky_decomp(ACOV,N)
+            ! Calls LAPACKs DPOTRF to cholesky decomp the covariance matrix A.
             use variables
             implicit none
             external :: DPOTRF ! lapack routine to calculate the cholesky decomp of a positive semi-definite matrix
@@ -85,6 +86,14 @@ module disorder
         end subroutine
 
         subroutine draw_multivar_distr(N_samples,MU,SIGMA,A_FAC)
+            ! Used to actually draw samples from the distribution defined by the covariance matrix ACOV
+            ! N_samples is the length of the vector of random numbers.
+            ! MU is returned as the vector of random numbers, on input it defines the mean of the distribution at each site.
+            ! We define this to be zero (no-disorder), so MU is on entry an array of zeros in this program.
+            ! SIGMA is the std deviation.
+            ! A_FAC is the Cholesky decomposed B from the covariance matrix A_COV.
+            ! We proceed by drawing a vector of size N_samples from a random normally distributed system (via Box Muller)
+            ! Then we use LAPACK to change these into the random distribution we want via delta = mu + B*Z
             use, intrinsic :: iso_fortran_env, only: wp => real64, int64
             use random_normal_distr, only: box_muller_vec
             implicit none

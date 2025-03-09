@@ -1,3 +1,4 @@
+!LM Contains functions for drawing from a normal distribution via the Box-Muller transform.
 module random_normal_distr
     use, intrinsic :: iso_fortran_env, only: wp => real64, int64
     implicit none
