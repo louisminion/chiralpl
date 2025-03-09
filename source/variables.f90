@@ -35,7 +35,7 @@ module variables
     real(wp) :: hw = 1400.0_wp
     real(wp) :: mu_0 = 1.0_wp*Debye
     real(wp) :: temp = 0.0000001_wp
-    real(wp) :: E_CT = 0.0_wp
+    real(wp) :: E_CT = 14000.0_wp
     real(wp) :: JCoulx = -0.2_wp
     real(wp) :: JCouly = -0.15_wp
     real(wp) :: JCoulz = 0.5_wp
@@ -127,9 +127,9 @@ module variables
     real(wp), allocatable :: cd_rot_strengths(:)
     real(wp), allocatable :: cd_spec(:)
     real(wp), allocatable :: cd_spec_avg(:)
-
-    real(wp), dimension(2) :: rot_strengths
-    real(wp), dimension(2) :: rot_strengths_tmp
+    real(wp), allocatable :: cpl_spec_perconfig(:)
     real(wp), allocatable :: cpl_spec(:)
+    real(wp), allocatable :: rot_strengths(:)
+    real(wp), allocatable :: rot_strengths_tmp(:)
 
 end module

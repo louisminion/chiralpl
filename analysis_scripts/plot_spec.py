@@ -185,14 +185,16 @@ plt.show()
 cpl_file = f + '_cpl.csv'
 
 
-df= pd.read_csv(cpl_file,skiprows=4)
+df= pd.read_csv(cpl_file,skiprows=1)
 df = df.rename(columns=lambda x: x.strip())
 fig,ax = plt.subplots()
 
 df['Wavelength'] = (1/df['Energy'])*1E7
-ax.plot(df['Energy'],df['GLUM'])
+ax.plot(df['Energy'],df['CPL'])
 ax.set_xlabel('Wavenumber (cm$^{-1}$)')
 ax.set_ylabel('g-factor (arbitrary scale)')
+ax.set_ylabel('CPL')
+plt.show()
 plt.savefig(f+'_cpl_cm^-1.png')
 
 plt.show()

@@ -76,13 +76,14 @@ program chiralpl
     pl_specy_by_v = 0.0_wp
     pl_specz_by_v = 0.0_wp
     allocate(cd_spec_avg(spec_steps))
+    allocate(cpl_spec(spec_steps))
     start_time = omp_get_wtime()
     !$OMP PARALLEL
     threads = omp_get_num_threads()
     !$OMP END PARALLEL
     write(*,'(a,I0,a)') 'Entering parallelised region with ',threads,' threads'
-    !$OMP PARALLEL SHARED(A_covar,pl_specx_by_v,pl_specy_by_v,pl_specz_by_v,abs_specx_configavg,abs_specy_configavg,abs_specz_configavg, cd_spec_avg) PRIVATE(diagonal_disorder_offsets,H&
-    !$OMP,EVAL,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz,pl_specx_by_v_perconfig,pl_specy_by_v_perconfig,pl_specz_by_v_perconfig,abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,abs_specx,abs_specy,abs_specz,cd_rot_strengths,cd_spec)
+    !$OMP PARALLEL SHARED(A_covar,pl_specx_by_v,pl_specy_by_v,pl_specz_by_v,abs_specx_configavg,abs_specy_configavg,abs_specz_configavg, cd_spec_avg,cpl_spec) PRIVATE(diagonal_disorder_offsets,H&
+    !$OMP,EVAL,xpl_osc,ypl_osc,zpl_osc,pl_specx,pl_specy,pl_specz,pl_specx_by_v_perconfig,pl_specy_by_v_perconfig,pl_specz_by_v_perconfig,abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,abs_specx,abs_specy,abs_specz,cd_rot_strengths,cd_spec,cpl_spec_perconfig)
     allocate(H(general_counter,general_counter))
     allocate( EVAL( general_counter ) )
     allocate(diagonal_disorder_offsets(lattice_count))
@@ -105,6 +106,9 @@ program chiralpl
     allocate(abs_specz(spec_steps))
     allocate(cd_rot_strengths(general_counter))
     allocate(cd_spec(spec_steps))
+    allocate(rot_strengths(max_vibs))
+    allocate(cpl_spec_perconfig(spec_steps))
+
     !$OMP DO PRIVATE(o) 
     do o=1,configs
         pl_specx_by_v_perconfig = 0.0_wp
@@ -144,6 +148,8 @@ program chiralpl
         call calc_abs_spec(abs_specx,abs_specy,abs_specz, EVAL,w00,lw,pi, abs_osc_strengths_x,abs_osc_strengths_y,abs_osc_strengths_z,lattice_count,spec_steps,general_counter)
         call cd(cd_rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,one_particle_index_arr,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral,k,mu_0,x_spacing,y_spacing,z_spacing,r_xyz)
         call calc_cd_spec(cd_rot_strengths, cd_spec, EVAL,w00,lw,pi,lattice_count,spec_steps,general_counter)
+        call cpl(rot_strengths,H,lattice_dimx,lattice_dimy,lattice_dimz,lattice_index_arr,one_particle_index_arr,two_particle_index_arr,general_counter,mu_xyz,max_vibs,fc_ground_to_neutral,k,mu_0,x_spacing,y_spacing,z_spacing,r_xyz)
+        call calc_cpl_spec(vt,spec_steps,w00,lw, EVAL,general_counter, temp,kB,pi,rot_strengths,cpl_spec_perconfig)
         ! DO ADDING AT THE END OF THE LOOP SO WAITING AT A MINIMUM
         !$omp critical(UPDATESPEC)
         pl_specx_by_v = pl_specx_by_v + pl_specx_by_v_perconfig
@@ -153,6 +159,7 @@ program chiralpl
         abs_specy_configavg = abs_specy_configavg + abs_specy
         abs_specz_configavg = abs_specz_configavg + abs_specz
         cd_spec_avg = cd_spec_avg + cd_spec
+        cpl_spec = cpl_spec + cpl_spec_perconfig
         !$omp end critical(UPDATESPEC)
     end do
     !$OMP END DO
@@ -172,6 +179,7 @@ program chiralpl
     deallocate(pl_specy_by_v_perconfig)
     deallocate(pl_specz_by_v_perconfig)
     deallocate(cd_spec)
+    deallocate(cpl_spec_perconfig)
     !$OMP END PARALLEL
     end_time = omp_get_wtime()
     write(*,'(a,F12.5,a)') 'Configurational average completed in',end_time-start_time,' seconds.'
@@ -179,6 +187,7 @@ program chiralpl
     pl_specy_by_v = pl_specy_by_v/(configs*1.0_wp)
     pl_specz_by_v = pl_specz_by_v/(configs*1.0_wp)
     cd_spec_avg = cd_spec_avg/(configs*1.0_wp)
+    cpl_spec = cpl_spec/(configs*1.0_wp)
     abs_specx_configavg = abs_specx_configavg/(configs*1.0_wp)
     abs_specy_configavg = abs_specy_configavg/(configs*1.0_wp)
     abs_specz_configavg = abs_specz_configavg/(configs*1.0_wp)
@@ -199,6 +208,7 @@ program chiralpl
     call write_pl(pl_specx,pl_specy,pl_specz,INPUT_NAME,spec_steps, hw, max_vibs,w00,lw)
     call write_abs(abs_specx_configavg,abs_specy_configavg,abs_specz_configavg,w00,hw,max_vibs,spec_steps,INPUT_NAME)
     call write_cd(cd_spec_avg,w00,hw,max_vibs,spec_steps,INPUT_NAME)
+    call write_cpl(cpl_spec,w00,hw,max_vibs,spec_steps,lw,INPUT_NAME)
     ! abs_osc_strengths_x_configavg = abs_osc_strengths_x_configavg/(configs*1.0_wp)
     ! call calc_abs_spec()
     ! call write_abs()

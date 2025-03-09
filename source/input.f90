@@ -120,6 +120,9 @@ module input
             ! Normalise units to hw
             w00 = w00/hw
             lw = lw/hw
+            E_CT = E_CT/hw
+            te = te/hw
+            th = th/hw
             ! hw = hw/hw
             JCoulx = JCoulx * eV / hw
             JCouly = JCouly * eV / hw
